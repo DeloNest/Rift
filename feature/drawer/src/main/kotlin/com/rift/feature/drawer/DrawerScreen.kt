@@ -1,12 +1,5 @@
 package com.rift.feature.drawer
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -28,6 +21,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
@@ -51,17 +46,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -69,12 +64,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.rift.core.ui.AppIcon
 import com.rift.data.apps.AppCategory
 import com.rift.data.apps.AppInfo
 import com.rift.data.settings.DrawerSortMode
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,18 +83,31 @@ fun DrawerScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var selectedAppForMove by remember { mutableStateOf<AppInfo?>(null) }
     var menuExpanded by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     // Enforce RTL for Arabic-first experience
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        val categories = uiState.categories
+        val pagerState = rememberPagerState(
+            initialPage = categories.indexOf(uiState.selectedCategory).coerceAtLeast(0),
+        ) { categories.size }
+
+        // Sync swipe gesture with viewmodel selected category
+        LaunchedEffect(pagerState.currentPage) {
+            if (pagerState.currentPage in categories.indices) {
+                viewModel.selectCategory(categories[pagerState.currentPage])
+            }
+        }
+
         Box(
             modifier = modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surface)
+                .background(Color.Black.copy(alpha = 0.55f))
                 .statusBarsPadding()
                 .navigationBarsPadding(),
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // 1. Top Header Row with Title in the Center
+                // 1. Top Header Row with Title in the CENTER
                 TopDrawerHeader(
                     categoryTitle = if (uiState.sortMode == DrawerSortMode.CATEGORIZED) {
                         uiState.selectedCategory.titleArabic
@@ -123,19 +132,15 @@ fun DrawerScreen(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // 2. Main App Grid (Categorized or Alphabetical)
+                // 2. Main App Content: HorizontalPager for fluid 120Hz swiping between categories!
                 if (uiState.sortMode == DrawerSortMode.CATEGORIZED) {
-                    AnimatedContent(
-                        targetState = uiState.selectedCategory,
-                        transitionSpec = {
-                            fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) togetherWith
-                                    fadeOut(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
-                        },
+                    HorizontalPager(
+                        state = pagerState,
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f),
-                        label = "CategoryAppsGrid",
-                    ) { currentCategory ->
+                    ) { pageIndex ->
+                        val currentCategory = categories.getOrNull(pageIndex) ?: AppCategory.GENERAL
                         val apps = uiState.categorizedApps[currentCategory] ?: emptyList()
 
                         if (apps.isEmpty()) {
@@ -162,7 +167,7 @@ fun DrawerScreen(
                         }
                     }
                 } else {
-                    // Alphabetical Grid Mode
+                    // Alphabetical Single Grid Mode
                     if (uiState.allAlphabeticalApps.isEmpty()) {
                         EmptyStateNotice(totalAppsCount = uiState.totalAppsCount)
                     } else {
@@ -189,7 +194,7 @@ fun DrawerScreen(
                     }
                 }
 
-                // Space for bottom floating bar when in categorized mode
+                // Bottom spacing for category bar
                 if (uiState.sortMode == DrawerSortMode.CATEGORIZED) {
                     Spacer(modifier = Modifier.height(76.dp))
                 } else {
@@ -200,9 +205,16 @@ fun DrawerScreen(
             // 3. Floating Bottom Category Pill (Only in Categorized mode, well spaced & styled)
             if (uiState.sortMode == DrawerSortMode.CATEGORIZED) {
                 BottomCategoryPill(
-                    categories = uiState.categories,
+                    categories = categories,
                     selectedCategory = uiState.selectedCategory,
-                    onCategorySelect = viewModel::selectCategory,
+                    onCategorySelect = { cat ->
+                        val targetIndex = categories.indexOf(cat)
+                        if (targetIndex >= 0) {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(targetIndex)
+                            }
+                        }
+                    },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 12.dp),
@@ -213,7 +225,7 @@ fun DrawerScreen(
             selectedAppForMove?.let { app ->
                 MoveCategoryBottomSheet(
                     app = app,
-                    categories = uiState.categories,
+                    categories = categories,
                     currentCategory = uiState.selectedCategory,
                     onSelectNewCategory = { newCat ->
                         viewModel.moveAppToCategory(app, newCat)
@@ -279,7 +291,6 @@ fun TopDrawerHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        // Search Button on one side
         IconButton(onClick = onSearchClick) {
             Icon(
                 imageVector = Icons.Default.Search,
@@ -288,7 +299,6 @@ fun TopDrawerHeader(
             )
         }
 
-        // Category Title in the CENTER
         Text(
             text = categoryTitle,
             style = MaterialTheme.typography.titleLarge.copy(
@@ -300,7 +310,6 @@ fun TopDrawerHeader(
             modifier = Modifier.weight(1f),
         )
 
-        // Options Menu on the other side
         Box {
             IconButton(onClick = onMenuClick) {
                 Icon(
@@ -339,48 +348,7 @@ fun TopDrawerHeader(
 }
 
 /**
- * App Icon Image Composable with system icon caching and stylized fallback.
- */
-@Composable
-fun AppIconImage(
-    app: AppInfo,
-    modifier: Modifier = Modifier,
-) {
-    val context = LocalContext.current
-    val imageBitmap = remember(app.packageName) {
-        runCatching {
-            val pm = context.packageManager
-            val drawable = pm.getActivityIcon(app.componentName)
-            val bmp = drawable.toBitmap(width = 120, height = 120)
-            bmp.asImageBitmap()
-        }.getOrNull()
-    }
-
-    if (imageBitmap != null) {
-        Image(
-            bitmap = imageBitmap,
-            contentDescription = app.label,
-            modifier = modifier.clip(RoundedCornerShape(16.dp)),
-        )
-    } else {
-        Surface(
-            modifier = modifier.clip(RoundedCornerShape(16.dp)),
-            color = MaterialTheme.colorScheme.primaryContainer,
-            tonalElevation = 2.dp,
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = app.label.take(1),
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-            }
-        }
-    }
-}
-
-/**
- * Single app grid cell with real icon, label, and long-press support.
+ * Single app grid cell with hardware cached icon, label, and long-press support.
  */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -400,9 +368,9 @@ fun DrawerAppItem(
             .padding(vertical = 6.dp, horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        AppIconImage(
+        AppIcon(
             app = app,
-            modifier = Modifier.size(54.dp),
+            size = 54.dp,
         )
 
         Spacer(modifier = Modifier.height(6.dp))

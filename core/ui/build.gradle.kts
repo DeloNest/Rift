@@ -9,6 +9,8 @@ android {
 
 dependencies {
     api(project(":core:designsystem"))
+    api(project(":core:icons"))
+    api(project(":data:apps"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.collections.immutable)
 }

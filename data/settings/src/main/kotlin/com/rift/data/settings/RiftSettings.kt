@@ -18,7 +18,8 @@ data class RiftSettings(
     val favoriteAppPackages: List<String> = emptyList(),
     val drawerSortMode: DrawerSortMode = DrawerSortMode.CATEGORIZED,
 
-    // Appearance
+    // Appearance & Wallpaper
+    val useSystemWallpaper: Boolean = true,
     val darkMode: DarkMode = DarkMode.SYSTEM,
     val dynamicColor: Boolean = true,
     val themedIcons: Boolean = true,

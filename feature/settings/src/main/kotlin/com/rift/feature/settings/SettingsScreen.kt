@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -74,6 +75,7 @@ import com.rift.data.settings.DarkMode
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit = {},
+    onOpenSetup: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -172,6 +174,28 @@ fun SettingsScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
+                        // Wallpaper Mode
+                        SettingsRow(
+                            icon = Icons.Default.Wallpaper,
+                            title = "خلفية الشاشة",
+                            subtitle = if (settings.useSystemWallpaper) "خلفية النظام الحالية (شفافة)" else "خلفية Rift OLED الداكنة",
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                ModePill(
+                                    label = "النظام",
+                                    selected = settings.useSystemWallpaper,
+                                    onClick = { viewModel.setUseSystemWallpaper(true) },
+                                )
+                                ModePill(
+                                    label = "OLED",
+                                    selected = !settings.useSystemWallpaper,
+                                    onClick = { viewModel.setUseSystemWallpaper(false) },
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
                         // Dynamic Color
                         SettingsSwitchRow(
                             icon = Icons.Default.ColorLens,
@@ -217,12 +241,12 @@ fun SettingsScreen(
 
                         SettingsRow(
                             icon = Icons.Default.Refresh,
-                            title = "إعادة تشغيل معالج الإعداد (Setup)",
-                            subtitle = "إعادة اختيار التطبيقات المفضلة للشريط السفلي ونمط العرض",
+                            title = "معالج الإعداد الأولي (Setup Wizard)",
+                            subtitle = "إعادة تشغيل معالج الإعداد لاختيار التطبيقات المفضلة ونمط العرض والخلفية",
                         ) {
                             TextButton(onClick = {
                                 viewModel.resetSetup()
-                                onNavigateBack()
+                                onOpenSetup()
                             }) {
                                 Text("بدء")
                             }

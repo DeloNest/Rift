@@ -44,7 +44,7 @@ class SettingsViewModel @Inject constructor(
     private val _updateUiState = MutableStateFlow<UpdateUiState>(UpdateUiState.Idle)
     val updateUiState: StateFlow<UpdateUiState> = _updateUiState.asStateFlow()
 
-    val currentVersionName: String = "1.0.3"
+    val currentVersionName: String = "1.0.4"
 
     fun checkForUpdates() {
         viewModelScope.launch {
@@ -121,6 +121,12 @@ class SettingsViewModel @Inject constructor(
     fun setAutoCategorize(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.update { it.copy(autoCategorizeEnabled = enabled) }
+        }
+    }
+
+    fun setUseSystemWallpaper(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.update { it.copy(useSystemWallpaper = enabled) }
         }
     }
 
