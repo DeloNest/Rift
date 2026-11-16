@@ -15,11 +15,13 @@ import androidx.compose.ui.Modifier
 import com.rift.feature.drawer.DrawerScreen
 import com.rift.feature.home.HomeScreen
 import com.rift.feature.search.SearchScreen
+import com.rift.feature.settings.SettingsScreen
 
 enum class LauncherScreen {
     HOME,
     DRAWER,
     SEARCH,
+    SETTINGS,
 }
 
 /**
@@ -51,12 +53,19 @@ fun RiftApp(modifier: Modifier = Modifier) {
                 DrawerScreen(
                     modifier = Modifier.fillMaxSize(),
                     onOpenSearch = { currentScreen = LauncherScreen.SEARCH },
+                    onOpenSettings = { currentScreen = LauncherScreen.SETTINGS },
                 )
             }
             LauncherScreen.SEARCH -> {
                 SearchScreen(
                     modifier = Modifier.fillMaxSize(),
                     onClose = { currentScreen = LauncherScreen.DRAWER },
+                )
+            }
+            LauncherScreen.SETTINGS -> {
+                SettingsScreen(
+                    modifier = Modifier.fillMaxSize(),
+                    onNavigateBack = { currentScreen = LauncherScreen.DRAWER },
                 )
             }
         }

@@ -33,6 +33,10 @@ data class RiftSettings(
 
     // Accessibility
     val reduceMotion: Boolean = false,
+
+    // Updates
+    val autoCheckUpdates: Boolean = true,
+    val updateRepo: String = "RiftLauncher/Rift",
 )
 
 @Serializable

@@ -60,12 +60,12 @@ class SearchUnitTest {
 
     @Test
     fun testFuzzyMatcher_damerauLevenshtein() {
-        // Transposition distance is 1
-        val dist = FuzzyMatcher.damerauLevenshtein("wathsapp", "whatsapp")
+        // Transposition distance is 1 (adjacent swap of 'a' and 'h': "wahtsapp" vs "whatsapp")
+        val dist = FuzzyMatcher.damerauLevenshtein("wahtsapp", "whatsapp")
         assertEquals(1, dist)
 
         // Matches fuzzy
-        val score = FuzzyMatcher.score("wathsapp", "whatsapp")
+        val score = FuzzyMatcher.score("wahtsapp", "whatsapp")
         assertTrue(score > FuzzyMatcher.SCORE_NONE)
     }
 }

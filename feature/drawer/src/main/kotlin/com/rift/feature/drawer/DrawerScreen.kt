@@ -77,6 +77,7 @@ fun DrawerScreen(
     modifier: Modifier = Modifier,
     viewModel: DrawerViewModel = hiltViewModel(),
     onOpenSearch: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var selectedAppForMove by remember { mutableStateOf<AppInfo?>(null) }
@@ -99,6 +100,7 @@ fun DrawerScreen(
                     onMenuClick = { menuExpanded = true },
                     menuExpanded = menuExpanded,
                     onDismissMenu = { menuExpanded = false },
+                    onOpenSettings = onOpenSettings,
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -191,6 +193,7 @@ fun TopDrawerHeader(
     onMenuClick: () -> Unit,
     menuExpanded: Boolean,
     onDismissMenu: () -> Unit,
+    onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -234,6 +237,13 @@ fun TopDrawerHeader(
                     onDismissRequest = onDismissMenu,
                 ) {
                     DropdownMenuItem(
+                        text = { Text("الإعدادات والتحديثات") },
+                        onClick = {
+                            onDismissMenu()
+                            onOpenSettings()
+                        },
+                    )
+                    DropdownMenuItem(
                         text = { Text("إعادة ترتيب التصنيفات") },
                         onClick = onDismissMenu,
                     )
@@ -266,7 +276,7 @@ fun DrawerAppItem(
                 onLongClick = onLongClick,
             )
             .padding(vertical = 6.dp, horizontal = 4.dp),
-        horizontalAlignment = Alignment.CenterVertically,
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         // App Icon container with Expressive shape
         Surface(
