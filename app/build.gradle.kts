@@ -10,8 +10,8 @@ android {
 
     defaultConfig {
         applicationId = "com.rift.launcher"
-        versionCode = 8
-        versionName = "1.0.7"
+        versionCode = 9
+        versionName = "1.0.8"
     }
 
     buildTypes {
