@@ -9,4 +9,6 @@ android {
 dependencies {
     implementation(project(":data:widgets"))
     implementation(project(":data:workspace"))
+    implementation(project(":data:settings"))
+    implementation(project(":data:apps"))
 }

@@ -7,6 +7,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -99,6 +101,7 @@ fun HomeScreen(
     onOpenDrawer: () -> Unit = {},
     onOpenSearch: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    onOpenWidgets: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -141,6 +144,14 @@ fun HomeScreen(
                             onOpenDrawer()
                         } else if (dragAmount > 35) {
                             onOpenSearch()
+                        }
+                    }
+                }
+                // Gestures: Horizontal Swipe -> Open Widgets Screen
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures { _, dragAmount ->
+                        if (abs(dragAmount) > 35) {
+                            onOpenWidgets()
                         }
                     }
                 },
@@ -213,9 +224,13 @@ fun HomeScreen(
                 )
             }
 
-            // Desktop Long-Press Menu (Settings, Search)
+            // Desktop Long-Press Menu (Settings, Search, Widgets)
             if (showDesktopMenuSheet) {
                 DesktopMenuBottomSheet(
+                    onOpenWidgets = {
+                        showDesktopMenuSheet = false
+                        onOpenWidgets()
+                    },
                     onOpenSettings = {
                         showDesktopMenuSheet = false
                         onOpenSettings()
@@ -569,6 +584,7 @@ private fun ActionCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DesktopMenuBottomSheet(
+    onOpenWidgets: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenSearch: () -> Unit,
     onDismiss: () -> Unit,
@@ -591,6 +607,32 @@ fun DesktopMenuBottomSheet(
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface,
             )
+
+            Card(
+                onClick = onOpenWidgets,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Widgets,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = "صفحة الأدوات والويدجيت (Widgets)",
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
 
             Card(
                 onClick = onOpenSettings,

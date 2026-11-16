@@ -20,6 +20,7 @@ import com.rift.feature.home.HomeViewModel
 import com.rift.feature.home.SetupScreen
 import com.rift.feature.search.SearchScreen
 import com.rift.feature.settings.SettingsScreen
+import com.rift.feature.widgets.WidgetsScreen
 
 enum class LauncherScreen {
     SETUP,
@@ -27,11 +28,12 @@ enum class LauncherScreen {
     DRAWER,
     SEARCH,
     SETTINGS,
+    WIDGETS,
 }
 
 /**
  * Root composable for Rift Launcher with full-screen setup wizard, predictive back handling,
- * and fluid animated transitions.
+ * and fluid animated transitions across all launcher screens.
  */
 @Composable
 fun RiftLauncherRoot(
@@ -70,6 +72,7 @@ fun RiftLauncherRoot(
                     onOpenDrawer = { currentScreen = LauncherScreen.DRAWER },
                     onOpenSearch = { currentScreen = LauncherScreen.SEARCH },
                     onOpenSettings = { currentScreen = LauncherScreen.SETTINGS },
+                    onOpenWidgets = { currentScreen = LauncherScreen.WIDGETS },
                 )
             }
             LauncherScreen.DRAWER -> {
@@ -90,6 +93,13 @@ fun RiftLauncherRoot(
                     modifier = Modifier.fillMaxSize(),
                     onNavigateBack = { currentScreen = LauncherScreen.HOME },
                     onOpenSetup = { currentScreen = LauncherScreen.SETUP },
+                )
+            }
+            LauncherScreen.WIDGETS -> {
+                WidgetsScreen(
+                    onNavigateBack = { currentScreen = LauncherScreen.HOME },
+                    onOpenSearch = { currentScreen = LauncherScreen.SEARCH },
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
         }

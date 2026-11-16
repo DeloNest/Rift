@@ -23,7 +23,7 @@ class WidgetHostManager @Inject constructor(
         private const val HOST_ID = 1024
     }
 
-    private val appWidgetManager = AppWidgetManager.getInstance(context)
+    val appWidgetManager: AppWidgetManager = AppWidgetManager.getInstance(context)
 
     private val host = object : AppWidgetHost(context, HOST_ID) {
         override fun onCreateView(
@@ -37,12 +37,12 @@ class WidgetHostManager @Inject constructor(
         }
 
         override fun onProvidersChanged() {
-            // TODO: Refresh widget picker and placed widgets
+            // Providers updated
         }
     }
 
     fun onStart() {
-        host.startListening()
+        runCatching { host.startListening() }
     }
 
     fun onStop() {
@@ -56,16 +56,24 @@ class WidgetHostManager @Inject constructor(
         provider: ComponentName,
         user: UserHandle,
         options: Bundle = Bundle.EMPTY,
-    ): Boolean = appWidgetManager.bindAppWidgetIdIfAllowed(id, user, provider, options)
+    ): Boolean = runCatching {
+        appWidgetManager.bindAppWidgetIdIfAllowed(id, user, provider, options)
+    }.getOrDefault(false)
 
     fun release(id: Int) {
-        host.deleteAppWidgetId(id)
+        runCatching { host.deleteAppWidgetId(id) }
     }
 
     fun getInstalledProviders(): List<AppWidgetProviderInfo> =
-        appWidgetManager.installedProviders
+        runCatching { appWidgetManager.installedProviders }.getOrDefault(emptyList())
 
-    fun obtainView(context: Context, appWidgetId: Int): RiftWidgetHostView {
-        return host.createView(context, appWidgetId, appWidgetManager.getAppWidgetInfo(appWidgetId)) as RiftWidgetHostView
+    fun getAppWidgetInfo(appWidgetId: Int): AppWidgetProviderInfo? =
+        runCatching { appWidgetManager.getAppWidgetInfo(appWidgetId) }.getOrNull()
+
+    fun obtainView(context: Context, appWidgetId: Int): RiftWidgetHostView? {
+        val info = getAppWidgetInfo(appWidgetId) ?: return null
+        return runCatching {
+            host.createView(context, appWidgetId, info) as? RiftWidgetHostView
+        }.getOrNull()
     }
 }
