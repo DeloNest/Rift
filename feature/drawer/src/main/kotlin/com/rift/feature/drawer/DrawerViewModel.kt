@@ -38,7 +38,6 @@ class DrawerViewModel @Inject constructor(
     private val _selectedCategory = MutableStateFlow(AppCategory.GENERAL)
     val selectedCategory: StateFlow<AppCategory> = _selectedCategory.asStateFlow()
 
-    // Map of manual reorders within a category (packageName -> custom order)
     private val _manualOrder = MutableStateFlow<Map<String, Int>>(emptyMap())
 
     val uiState: StateFlow<DrawerUiState> = combine(
@@ -47,9 +46,21 @@ class DrawerViewModel @Inject constructor(
         _manualOrder,
         settingsRepository.settings,
     ) { apps, selectedCat, manualOrder, settings ->
+        // 1. Resolve Categories Order (User custom reordering or standard order)
+        val resolvedCategories = if (settings.categoryOrder.isNotEmpty()) {
+            val categoryMap = AppCategory.entries.associateBy { it.name }
+            val ordered = settings.categoryOrder.mapNotNull { categoryMap[it] }.toMutableList()
+            for (cat in AppCategory.entries) {
+                if (!ordered.contains(cat)) ordered.add(cat)
+            }
+            ordered
+        } else {
+            AppCategory.entries.sortedBy { it.order }
+        }
+
         // Group apps by category
         val grouped = mutableMapOf<AppCategory, MutableList<AppInfo>>()
-        for (cat in AppCategory.entries) {
+        for (cat in resolvedCategories) {
             grouped[cat] = mutableListOf()
         }
 
@@ -70,7 +81,7 @@ class DrawerViewModel @Inject constructor(
 
         DrawerUiState(
             selectedCategory = selectedCat,
-            categories = AppCategory.entries.sortedBy { it.order },
+            categories = resolvedCategories,
             categorizedApps = finalMap,
             currentCategoryApps = finalMap[selectedCat] ?: emptyList(),
             allAlphabeticalApps = allAlphabetical,
@@ -93,10 +104,24 @@ class DrawerViewModel @Inject constructor(
         }
     }
 
+    fun moveCategory(category: AppCategory, direction: Int) {
+        viewModelScope.launch {
+            val currentList = uiState.value.categories.toMutableList()
+            val index = currentList.indexOf(category)
+            val newIndex = (index + direction).coerceIn(0, currentList.size - 1)
+            if (index != newIndex) {
+                currentList.removeAt(index)
+                currentList.add(newIndex, category)
+                settingsRepository.update {
+                    it.copy(categoryOrder = currentList.map { c -> c.name })
+                }
+            }
+        }
+    }
+
     fun moveAppToCategory(app: AppInfo, newCategory: AppCategory) {
         viewModelScope.launch {
             appCategorizer.setOverride(app.packageName, newCategory)
-            // Trigger refresh by updating manual order state
             _manualOrder.value = _manualOrder.value.toMutableMap().also { it[app.packageName] = 0 }
         }
     }

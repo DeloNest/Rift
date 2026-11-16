@@ -1,6 +1,7 @@
 package com.rift.core.ui
 
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -22,42 +23,51 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.toBitmap
 import com.rift.data.apps.AppInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-// Global memory cache to eliminate repeated IO queries
-private val globalBitmapCache = android.util.LruCache<String, Bitmap>(32 * 1024 * 1024)
+// 48 MB High-Definition Bitmap Cache for native 120Hz display
+private val globalBitmapCache = object : android.util.LruCache<String, Bitmap>(48 * 1024 * 1024) {
+    override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
+}
 
 /**
- * Universal high-performance AppIcon component.
- * Uses an in-memory hardware bitmap cache and offloads any misses to Dispatchers.IO.
- * Guarantees zero frame drops during fast scrolling or page swiping.
+ * Universal ultra-high-definition AppIcon component.
+ * - Decodes at full 256x256 native resolution for razor-sharp clarity on QHD+ / AMOLED screens.
+ * - Preserves native Samsung One UI adaptive squircle masks without double-clipping.
+ * - Backed by an in-memory hardware bitmap cache and asynchronous IO offloading.
  */
 @Composable
 fun AppIcon(
     app: AppInfo,
     modifier: Modifier = Modifier,
-    size: Dp = 54.dp,
-    shapeRadius: Dp = 16.dp,
+    size: Dp = 56.dp,
 ) {
     val context = LocalContext.current
-    var bitmap by remember(app.packageName) {
-        mutableStateOf(globalBitmapCache.get(app.packageName))
+    val cacheKey = "${app.packageName}/${app.userSerial}"
+    var bitmap by remember(cacheKey) {
+        mutableStateOf(globalBitmapCache.get(cacheKey))
     }
 
     if (bitmap == null) {
-        LaunchedEffect(app.packageName) {
-            val cached = globalBitmapCache.get(app.packageName)
+        LaunchedEffect(cacheKey) {
+            val cached = globalBitmapCache.get(cacheKey)
             if (cached != null) {
                 bitmap = cached
             } else {
                 val loaded = withContext(Dispatchers.IO) {
                     runCatching {
-                        val drawable = context.packageManager.getActivityIcon(app.componentName)
-                        val bmp = drawable.toBitmap(width = 120, height = 120, config = Bitmap.Config.ARGB_8888)
-                        globalBitmapCache.put(app.packageName, bmp)
+                        var drawable = context.packageManager.getActivityIcon(app.componentName)
+                        if (app.isWorkProfile) {
+                            drawable = context.packageManager.getUserBadgedIcon(drawable, app.userHandle)
+                        }
+                        val targetPx = 256
+                        val bmp = Bitmap.createBitmap(targetPx, targetPx, Bitmap.Config.ARGB_8888)
+                        val canvas = Canvas(bmp)
+                        drawable.setBounds(0, 0, targetPx, targetPx)
+                        drawable.draw(canvas)
+                        globalBitmapCache.put(cacheKey, bmp)
                         bmp
                     }.getOrNull()
                 }
@@ -73,16 +83,14 @@ fun AppIcon(
         Image(
             bitmap = currentBmp.asImageBitmap(),
             contentDescription = app.label,
-            modifier = modifier
-                .size(size)
-                .clip(RoundedCornerShape(shapeRadius)),
+            modifier = modifier.size(size),
         )
     } else {
-        // Instant lightweight placeholder so composition is never blocked
+        // Fast fallback container
         Surface(
             modifier = modifier
                 .size(size)
-                .clip(RoundedCornerShape(shapeRadius)),
+                .clip(RoundedCornerShape(16.dp)),
             color = MaterialTheme.colorScheme.primaryContainer,
             tonalElevation = 2.dp,
         ) {

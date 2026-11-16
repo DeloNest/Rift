@@ -4,13 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rift.data.apps.AppInfo
 import com.rift.data.apps.AppsRepository
-import com.rift.data.settings.DrawerSortMode
 import com.rift.data.settings.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class HomeUiState(
@@ -71,5 +71,51 @@ class HomeViewModel @Inject constructor(
 
     fun launchApp(app: AppInfo) {
         appsRepository.launchApp(app)
+    }
+
+    fun moveFavoriteApp(app: AppInfo, direction: Int) {
+        viewModelScope.launch {
+            val currentList = uiState.value.favoriteApps.map { it.packageName }.toMutableList()
+            val index = currentList.indexOf(app.packageName)
+            if (index != -1) {
+                val newIndex = (index + direction).coerceIn(0, currentList.size - 1)
+                if (index != newIndex) {
+                    val item = currentList.removeAt(index)
+                    currentList.add(newIndex, item)
+                    settingsRepository.update { it.copy(favoriteAppPackages = currentList) }
+                }
+            }
+        }
+    }
+
+    fun removeFavoriteApp(app: AppInfo) {
+        viewModelScope.launch {
+            val currentList = uiState.value.favoriteApps.map { it.packageName }.toMutableList()
+            currentList.remove(app.packageName)
+            settingsRepository.update { it.copy(favoriteAppPackages = currentList) }
+        }
+    }
+
+    fun addFavoriteApp(app: AppInfo) {
+        viewModelScope.launch {
+            val currentList = uiState.value.favoriteApps.map { it.packageName }.toMutableList()
+            if (!currentList.contains(app.packageName) && currentList.size < 5) {
+                currentList.add(app.packageName)
+                settingsRepository.update { it.copy(favoriteAppPackages = currentList) }
+            }
+        }
+    }
+
+    fun replaceFavoriteApp(oldApp: AppInfo, newApp: AppInfo) {
+        viewModelScope.launch {
+            val currentList = uiState.value.favoriteApps.map { it.packageName }.toMutableList()
+            val index = currentList.indexOf(oldApp.packageName)
+            if (index != -1) {
+                currentList[index] = newApp.packageName
+            } else {
+                currentList.add(newApp.packageName)
+            }
+            settingsRepository.update { it.copy(favoriteAppPackages = currentList.take(5)) }
+        }
     }
 }

@@ -17,6 +17,7 @@ data class RiftSettings(
     val hasCompletedSetup: Boolean = false,
     val favoriteAppPackages: List<String> = emptyList(),
     val drawerSortMode: DrawerSortMode = DrawerSortMode.CATEGORIZED,
+    val categoryOrder: List<String> = emptyList(),
 
     // Appearance & Wallpaper
     val useSystemWallpaper: Boolean = true,

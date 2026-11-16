@@ -137,7 +137,6 @@ fun SearchResultRow(
         AppIcon(
             app = app,
             size = 46.dp,
-            shapeRadius = 14.dp,
         )
 
         Spacer(modifier = Modifier.width(16.dp))

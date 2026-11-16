@@ -3,6 +3,8 @@ package com.rift.feature.drawer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +20,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -28,6 +32,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
@@ -48,6 +54,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -57,6 +64,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -70,6 +79,7 @@ import com.rift.core.ui.AppIcon
 import com.rift.data.apps.AppCategory
 import com.rift.data.apps.AppInfo
 import com.rift.data.settings.DrawerSortMode
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -82,17 +92,18 @@ fun DrawerScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var selectedAppForMove by remember { mutableStateOf<AppInfo?>(null) }
+    var showReorderSheet by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    var scrollJob by remember { mutableStateOf<Job?>(null) }
 
-    // Enforce RTL for Arabic-first experience
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         val categories = uiState.categories
         val pagerState = rememberPagerState(
             initialPage = categories.indexOf(uiState.selectedCategory).coerceAtLeast(0),
         ) { categories.size }
 
-        // Sync swipe gesture with viewmodel selected category
+        // Sync swipe gesture on the app grid with viewmodel selected category
         LaunchedEffect(pagerState.currentPage) {
             if (pagerState.currentPage in categories.indices) {
                 viewModel.selectCategory(categories[pagerState.currentPage])
@@ -102,7 +113,7 @@ fun DrawerScreen(
         Box(
             modifier = modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.55f))
+                .background(Color.Black.copy(alpha = 0.58f))
                 .statusBarsPadding()
                 .navigationBarsPadding(),
         ) {
@@ -119,6 +130,7 @@ fun DrawerScreen(
                     menuExpanded = menuExpanded,
                     onDismissMenu = { menuExpanded = false },
                     onOpenSettings = onOpenSettings,
+                    onOpenReorder = { showReorderSheet = true },
                     sortMode = uiState.sortMode,
                     onToggleSortMode = {
                         val nextMode = if (uiState.sortMode == DrawerSortMode.CATEGORIZED) {
@@ -132,7 +144,7 @@ fun DrawerScreen(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // 2. Main App Content: HorizontalPager for fluid 120Hz swiping between categories!
+                // 2. Main App Content: HorizontalPager for ultra-fast 120Hz swiping
                 if (uiState.sortMode == DrawerSortMode.CATEGORIZED) {
                     HorizontalPager(
                         state = pagerState,
@@ -196,25 +208,28 @@ fun DrawerScreen(
 
                 // Bottom spacing for category bar
                 if (uiState.sortMode == DrawerSortMode.CATEGORIZED) {
-                    Spacer(modifier = Modifier.height(76.dp))
+                    Spacer(modifier = Modifier.height(78.dp))
                 } else {
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }
 
-            // 3. Floating Bottom Category Pill (Only in Categorized mode, well spaced & styled)
+            // 3. Floating Bottom Category Pill with Continuous Drag Scrubber
             if (uiState.sortMode == DrawerSortMode.CATEGORIZED) {
-                BottomCategoryPill(
+                BottomCategoryScrubberPill(
                     categories = categories,
                     selectedCategory = uiState.selectedCategory,
                     onCategorySelect = { cat ->
                         val targetIndex = categories.indexOf(cat)
-                        if (targetIndex >= 0) {
-                            coroutineScope.launch {
-                                pagerState.animateScrollToPage(targetIndex)
+                        if (targetIndex >= 0 && targetIndex != pagerState.currentPage) {
+                            viewModel.selectCategory(cat)
+                            scrollJob?.cancel()
+                            scrollJob = coroutineScope.launch {
+                                pagerState.scrollToPage(targetIndex)
                             }
                         }
                     },
+                    onOpenReorder = { showReorderSheet = true },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 12.dp),
@@ -232,6 +247,15 @@ fun DrawerScreen(
                         selectedAppForMove = null
                     },
                     onDismiss = { selectedAppForMove = null },
+                )
+            }
+
+            // 5. Reorder Categories Bottom Sheet
+            if (showReorderSheet) {
+                ReorderCategoriesBottomSheet(
+                    categories = categories,
+                    onMoveCategory = viewModel::moveCategory,
+                    onDismiss = { showReorderSheet = false },
                 )
             }
         }
@@ -280,6 +304,7 @@ fun TopDrawerHeader(
     menuExpanded: Boolean,
     onDismissMenu: () -> Unit,
     onOpenSettings: () -> Unit = {},
+    onOpenReorder: () -> Unit = {},
     sortMode: DrawerSortMode = DrawerSortMode.CATEGORIZED,
     onToggleSortMode: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -324,6 +349,13 @@ fun TopDrawerHeader(
                 onDismissRequest = onDismissMenu,
             ) {
                 DropdownMenuItem(
+                    text = { Text("ترتيب مواضع الأقسام") },
+                    onClick = {
+                        onDismissMenu()
+                        onOpenReorder()
+                    },
+                )
+                DropdownMenuItem(
                     text = {
                         Text(
                             if (sortMode == DrawerSortMode.CATEGORIZED) "التبديل إلى عرض أبجدي (A-Z)"
@@ -348,7 +380,7 @@ fun TopDrawerHeader(
 }
 
 /**
- * Single app grid cell with hardware cached icon, label, and long-press support.
+ * Single app grid cell with native high-res icon and long-press support.
  */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -370,7 +402,7 @@ fun DrawerAppItem(
     ) {
         AppIcon(
             app = app,
-            size = 54.dp,
+            size = 56.dp,
         )
 
         Spacer(modifier = Modifier.height(6.dp))
@@ -387,24 +419,73 @@ fun DrawerAppItem(
 }
 
 /**
- * Floating category pill bar anchored at bottom of screen.
- * Distinctive Smart Launcher style with generous spacing and active pill indicator.
+ * Floating category scrubber bar anchored at bottom of screen.
+ * Supports continuous finger dragging / sliding across icons for instant snappy switching,
+ * as well as long-press to open the category reordering sheet.
  */
 @Composable
-fun BottomCategoryPill(
+fun BottomCategoryScrubberPill(
     categories: List<AppCategory>,
     selectedCategory: AppCategory,
     onCategorySelect: (AppCategory) -> Unit,
+    onOpenReorder: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    var pillWidthPx by remember { mutableFloatStateOf(0f) }
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+
     Surface(
         modifier = modifier
             .padding(horizontal = 16.dp)
-            .height(64.dp),
+            .height(64.dp)
+            .onGloballyPositioned { coordinates ->
+                pillWidthPx = coordinates.size.width.toFloat()
+            }
+            .pointerInput(categories, isRtl) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val downTime = System.currentTimeMillis()
+                    var hasTriggeredLongPress = false
+
+                    fun updateCategory(x: Float) {
+                        if (pillWidthPx > 0 && categories.isNotEmpty()) {
+                            val fraction = (x / pillWidthPx).coerceIn(0f, 0.999f)
+                            val targetIndex = if (isRtl) {
+                                ((1f - fraction) * categories.size).toInt()
+                            } else {
+                                (fraction * categories.size).toInt()
+                            }.coerceIn(0, categories.size - 1)
+
+                            val targetCategory = categories[targetIndex]
+                            onCategorySelect(targetCategory)
+                        }
+                    }
+
+                    // 1. Instant selection on touch-down
+                    updateCategory(down.position.x)
+
+                    // 2. Track finger as it continuously scrubs across categories
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull() ?: break
+                        if (!change.pressed) break
+
+                        val dist = (change.position - down.position).getDistance()
+                        val elapsed = System.currentTimeMillis() - downTime
+                        if (!hasTriggeredLongPress && elapsed > 450 && dist < 30f) {
+                            hasTriggeredLongPress = true
+                            onOpenReorder()
+                        }
+
+                        updateCategory(change.position.x)
+                        change.consume()
+                    }
+                }
+            },
         shape = RoundedCornerShape(32.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
-        tonalElevation = 6.dp,
-        shadowElevation = 10.dp,
+        tonalElevation = 8.dp,
+        shadowElevation = 12.dp,
     ) {
         Row(
             modifier = Modifier
@@ -424,8 +505,7 @@ fun BottomCategoryPill(
                         .background(
                             if (isSelected) MaterialTheme.colorScheme.primaryContainer
                             else Color.Transparent
-                        )
-                        .clickable { onCategorySelect(category) },
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -445,7 +525,7 @@ fun BottomCategoryPill(
 }
 
 /**
- * Maps each AppCategory to a clean icon matching Smart Launcher style.
+ * Maps each AppCategory to clean, modern, bespoke vector icons.
  */
 fun getCategoryIcon(category: AppCategory): ImageVector = when (category) {
     AppCategory.GENERAL -> Icons.Default.Apps
@@ -480,8 +560,8 @@ fun MoveCategoryBottomSheet(
                 .padding(horizontal = 24.dp, vertical = 16.dp),
         ) {
             Text(
-                text = "نقل تطبيق \"${app.label}\" إلى تصنيف:",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                text = "نقل \"${app.label}\" إلى تصنيف آخر",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface,
             )
 
@@ -493,12 +573,12 @@ fun MoveCategoryBottomSheet(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
                         .clickable { onSelectNewCategory(category) }
-                        .padding(vertical = 12.dp, horizontal = 16.dp),
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
                         imageVector = getCategoryIcon(category),
-                        contentDescription = category.titleArabic,
+                        contentDescription = null,
                         tint = if (category == currentCategory) {
                             MaterialTheme.colorScheme.primary
                         } else {
@@ -524,6 +604,107 @@ fun MoveCategoryBottomSheet(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+/**
+ * Bottom Sheet allowing user to reorder categories directly with instant persistence.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ReorderCategoriesBottomSheet(
+    categories: List<AppCategory>,
+    onMoveCategory: (AppCategory, Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState()
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+        ) {
+            Text(
+                text = "إعادة ترتيب أقسام التصنيفات",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "استخدم الأسهم لتغيير موضع أي قسم في الشريط السفلي ودرج التطبيقات:",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                itemsIndexed(categories) { index, category ->
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = getCategoryIcon(category),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp),
+                                )
+                                Spacer(modifier = Modifier.width(14.dp))
+                                Text(
+                                    text = category.titleArabic,
+                                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+
+                            Row {
+                                IconButton(
+                                    onClick = { onMoveCategory(category, -1) },
+                                    enabled = index > 0,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowUp,
+                                        contentDescription = "تحريك لأعلى",
+                                        tint = if (index > 0) MaterialTheme.colorScheme.primary else Color.Gray,
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { onMoveCategory(category, 1) },
+                                    enabled = index < categories.size - 1,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowDown,
+                                        contentDescription = "تحريك لأسفل",
+                                        tint = if (index < categories.size - 1) MaterialTheme.colorScheme.primary else Color.Gray,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
         }
     }
 }
