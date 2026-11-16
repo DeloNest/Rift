@@ -1,17 +1,28 @@
 package com.rift.feature.home
 
+import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Process
 import android.provider.Settings
+import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rift.data.apps.AppInfo
 import com.rift.data.apps.AppsRepository
 import com.rift.data.settings.SettingsRepository
+import com.rift.data.widgets.AppWidgetGroup
+import com.rift.data.widgets.WidgetHostManager
+import com.rift.data.workspace.WorkspaceItemEntity
+import com.rift.data.workspace.WorkspaceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -24,6 +35,7 @@ data class HomeUiState(
     val iconPackPackage: String? = null,
     val favoriteApps: List<AppInfo> = emptyList(),
     val desktopApps: List<AppInfo> = emptyList(),
+    val homeWidgets: List<WorkspaceItemEntity> = emptyList(),
     val allInstalledApps: List<AppInfo> = emptyList(),
 )
 
@@ -31,12 +43,43 @@ data class HomeUiState(
 class HomeViewModel @Inject constructor(
     private val appsRepository: AppsRepository,
     private val settingsRepository: SettingsRepository,
+    val widgetHostManager: WidgetHostManager,
+    private val workspaceRepository: WorkspaceRepository,
+    @param:ApplicationContext private val context: Context,
 ) : ViewModel() {
+
+    private val _widgetGroups = MutableStateFlow<List<AppWidgetGroup>>(emptyList())
+    val widgetGroups: StateFlow<List<AppWidgetGroup>> = _widgetGroups.asStateFlow()
+
+    init {
+        loadWidgetGroups()
+    }
+
+    fun loadWidgetGroups() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val providers = widgetHostManager.getInstalledProviders()
+            val pm = context.packageManager
+            val groups = providers.groupBy { it.provider.packageName }.map { (pkg, widgetList) ->
+                val appInfo = runCatching { pm.getApplicationInfo(pkg, 0) }.getOrNull()
+                val appName = appInfo?.let { pm.getApplicationLabel(it).toString() } ?: pkg
+                val appIcon = runCatching { appInfo?.loadIcon(pm)?.toBitmap(width = 96, height = 96) }.getOrNull()
+                AppWidgetGroup(
+                    packageName = pkg,
+                    appName = appName,
+                    appIcon = appIcon,
+                    widgets = widgetList.sortedBy { it.loadLabel(pm) },
+                )
+            }.sortedBy { it.appName.lowercase() }
+
+            _widgetGroups.value = groups
+        }
+    }
 
     val uiState: StateFlow<HomeUiState> = combine(
         appsRepository.allApps,
         settingsRepository.settings,
-    ) { apps, settings ->
+        workspaceRepository.getWidgetsByContainer(WorkspaceItemEntity.CONTAINER_DESKTOP),
+    ) { apps, settings, widgets ->
         val appMap = apps.associateBy { it.packageName }
 
         // 1. Identify Candidate Suggested Apps if none set
@@ -74,6 +117,7 @@ class HomeViewModel @Inject constructor(
             iconPackPackage = settings.iconPackPackage,
             favoriteApps = favoriteApps,
             desktopApps = desktopApps,
+            homeWidgets = widgets.sortedBy { it.rank },
             allInstalledApps = apps,
         )
     }.stateIn(
@@ -167,6 +211,72 @@ class HomeViewModel @Inject constructor(
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
+        }
+    }
+
+    fun addHomeAppWidget(provider: AppWidgetProviderInfo, onRequireBindPermission: (Int, AppWidgetProviderInfo) -> Unit) {
+        viewModelScope.launch {
+            val appWidgetId = widgetHostManager.allocateId()
+            val canBind = widgetHostManager.tryBind(appWidgetId, provider.provider, Process.myUserHandle())
+            if (canBind) {
+                val entity = WorkspaceItemEntity(
+                    type = WorkspaceItemEntity.TYPE_WIDGET,
+                    container = WorkspaceItemEntity.CONTAINER_DESKTOP,
+                    page = 0,
+                    cellX = 0,
+                    cellY = 0,
+                    spanX = 4,
+                    spanY = 2,
+                    appWidgetId = appWidgetId,
+                    widgetProvider = provider.provider.flattenToString(),
+                    title = provider.loadLabel(context.packageManager),
+                    rank = uiState.value.homeWidgets.size,
+                )
+                workspaceRepository.addItem(entity)
+            } else {
+                onRequireBindPermission(appWidgetId, provider)
+            }
+        }
+    }
+
+    fun onHomeWidgetBindPermissionGranted(appWidgetId: Int, provider: AppWidgetProviderInfo) {
+        viewModelScope.launch {
+            val entity = WorkspaceItemEntity(
+                type = WorkspaceItemEntity.TYPE_WIDGET,
+                container = WorkspaceItemEntity.CONTAINER_DESKTOP,
+                page = 0,
+                cellX = 0,
+                cellY = 0,
+                spanX = 4,
+                spanY = 2,
+                appWidgetId = appWidgetId,
+                widgetProvider = provider.provider.flattenToString(),
+                title = provider.loadLabel(context.packageManager),
+                rank = uiState.value.homeWidgets.size,
+            )
+            workspaceRepository.addItem(entity)
+        }
+    }
+
+    fun removeHomeWidget(item: WorkspaceItemEntity) {
+        viewModelScope.launch {
+            item.appWidgetId?.let { widgetHostManager.release(it) }
+            workspaceRepository.removeItem(item.id)
+        }
+    }
+
+    fun moveHomeWidget(item: WorkspaceItemEntity, delta: Int) {
+        viewModelScope.launch {
+            val list = uiState.value.homeWidgets.toMutableList()
+            val index = list.indexOfFirst { it.id == item.id }
+            val targetIndex = index + delta
+            if (index != -1 && targetIndex in list.indices) {
+                val current = list.removeAt(index)
+                list.add(targetIndex, current)
+                list.forEachIndexed { i, w ->
+                    workspaceRepository.updateItem(w.copy(rank = i))
+                }
+            }
         }
     }
 }

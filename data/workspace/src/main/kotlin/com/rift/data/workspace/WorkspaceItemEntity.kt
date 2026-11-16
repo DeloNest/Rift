@@ -43,5 +43,6 @@ data class WorkspaceItemEntity(
 
         const val CONTAINER_DESKTOP = -100L
         const val CONTAINER_DOCK = -101L
+        const val CONTAINER_WIDGETS_PAGE = -102L
     }
 }

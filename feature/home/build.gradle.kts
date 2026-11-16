@@ -12,4 +12,5 @@ dependencies {
     implementation(project(":data:widgets"))
     implementation(project(":data:settings"))
     implementation(project(":core:icons"))
+    implementation(project(":feature:widgets"))
 }

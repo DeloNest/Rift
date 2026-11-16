@@ -21,6 +21,9 @@ class WorkspaceRepositoryImpl @Inject constructor(
     override fun getAllWidgets(): Flow<List<WorkspaceItemEntity>> =
         dao.getAllWidgets()
 
+    override fun getWidgetsByContainer(container: Long): Flow<List<WorkspaceItemEntity>> =
+        dao.getWidgetsByContainer(container)
+
     override suspend fun getPages(): List<Int> =
         dao.getPages(WorkspaceItemEntity.CONTAINER_DESKTOP)
 

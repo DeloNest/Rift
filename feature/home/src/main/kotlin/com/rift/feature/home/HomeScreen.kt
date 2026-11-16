@@ -1,6 +1,11 @@
 package com.rift.feature.home
 
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -24,11 +29,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PushPin
@@ -75,6 +83,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rift.core.ui.AppIcon
 import com.rift.data.apps.AppInfo
+import com.rift.data.workspace.WorkspaceItemEntity
+import com.rift.feature.widgets.SystemWidgetCard
+import com.rift.feature.widgets.WidgetActionBottomSheet
+import com.rift.feature.widgets.WidgetPickerBottomSheet
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -105,9 +117,24 @@ fun HomeScreen(
     onDoubleTapWallpaper: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val widgetGroups by viewModel.widgetGroups.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var selectedAppForActions by remember { mutableStateOf<SelectedAppAction?>(null) }
     var showDesktopMenuSheet by remember { mutableStateOf(false) }
+    var showWidgetPicker by remember { mutableStateOf(false) }
+    var selectedWidgetForAction by remember { mutableStateOf<WorkspaceItemEntity?>(null) }
+    var pendingBindWidget by remember { mutableStateOf<Pair<Int, AppWidgetProviderInfo>?>(null) }
+
+    val bindPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            pendingBindWidget?.let { (id, provider) ->
+                viewModel.onHomeWidgetBindPermissionGranted(id, provider)
+            }
+        }
+        pendingBindWidget = null
+    }
 
     val bgModifier = if (uiState.useSystemWallpaper) {
         Modifier.background(Color.Transparent)
@@ -166,20 +193,42 @@ fun HomeScreen(
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.SpaceBetween,
             ) {
-                // Top area: Desktop Pinned Apps (if user pinned apps to home screen)
-                if (uiState.desktopApps.isNotEmpty()) {
-                    DesktopAppsGrid(
-                        apps = uiState.desktopApps,
-                        onLaunchApp = viewModel::launchApp,
-                        onReorder = viewModel::reorderDesktopApps,
-                        onAppLongClick = { app ->
-                            selectedAppForActions = SelectedAppAction(app, AppSourceLocation.DESKTOP)
-                        },
+                // Central area: Home Widgets and Desktop Pinned Apps
+                if (uiState.homeWidgets.isNotEmpty() || uiState.desktopApps.isNotEmpty()) {
+                    LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f)
-                            .padding(top = 16.dp),
-                    )
+                            .weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        contentPadding = PaddingValues(top = 12.dp, bottom = 12.dp),
+                    ) {
+                        // 1. Home System Widgets
+                        items(
+                            items = uiState.homeWidgets,
+                            key = { it.id },
+                        ) { widgetItem ->
+                            SystemWidgetCard(
+                                item = widgetItem,
+                                widgetHostManager = viewModel.widgetHostManager,
+                                onLongPress = { selectedWidgetForAction = widgetItem },
+                            )
+                        }
+
+                        // 2. Desktop Pinned Apps (if any)
+                        if (uiState.desktopApps.isNotEmpty()) {
+                            item(key = "desktop_pinned_apps") {
+                                DesktopAppsGrid(
+                                    apps = uiState.desktopApps,
+                                    onLaunchApp = viewModel::launchApp,
+                                    onReorder = viewModel::reorderDesktopApps,
+                                    onAppLongClick = { app ->
+                                        selectedAppForActions = SelectedAppAction(app, AppSourceLocation.DESKTOP)
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                        }
+                    }
                 } else {
                     Spacer(modifier = Modifier.weight(1f))
                 }
@@ -228,9 +277,54 @@ fun HomeScreen(
                 )
             }
 
-            // Desktop Long-Press Menu (Settings, Search, Widgets)
+            // Widget Action Sheet (Move Up, Move Down, Delete from Home)
+            selectedWidgetForAction?.let { widgetItem ->
+                WidgetActionBottomSheet(
+                    item = widgetItem,
+                    onMoveUp = {
+                        viewModel.moveHomeWidget(widgetItem, -1)
+                        selectedWidgetForAction = null
+                    },
+                    onMoveDown = {
+                        viewModel.moveHomeWidget(widgetItem, 1)
+                        selectedWidgetForAction = null
+                    },
+                    onDelete = {
+                        viewModel.removeHomeWidget(widgetItem)
+                        selectedWidgetForAction = null
+                    },
+                    onDismiss = { selectedWidgetForAction = null },
+                )
+            }
+
+            // Hierarchical Grouped Widget Picker Sheet
+            if (showWidgetPicker) {
+                WidgetPickerBottomSheet(
+                    widgetGroups = widgetGroups,
+                    context = context,
+                    onSelectProvider = { provider ->
+                        showWidgetPicker = false
+                        viewModel.addHomeAppWidget(provider) { id, p ->
+                            pendingBindWidget = Pair(id, p)
+                            val intent = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND).apply {
+                                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
+                                putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, p.provider)
+                            }
+                            bindPermissionLauncher.launch(intent)
+                        }
+                    },
+                    onDismiss = { showWidgetPicker = false },
+                )
+            }
+
+            // Desktop Long-Press Menu (Add Widget, Settings, Search, Widgets Page)
             if (showDesktopMenuSheet) {
                 DesktopMenuBottomSheet(
+                    onAddWidget = {
+                        showDesktopMenuSheet = false
+                        viewModel.loadWidgetGroups()
+                        showWidgetPicker = true
+                    },
                     onOpenWidgets = {
                         showDesktopMenuSheet = false
                         onOpenWidgets()
@@ -588,6 +682,7 @@ private fun ActionCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DesktopMenuBottomSheet(
+    onAddWidget: () -> Unit,
     onOpenWidgets: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenSearch: () -> Unit,
@@ -611,6 +706,50 @@ fun DesktopMenuBottomSheet(
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface,
             )
+
+            // Primary: Add Widget to Home Screen
+            Card(
+                onClick = onAddWidget,
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                ),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.primary),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text(
+                            text = "إضافة ويدجيت إلى الشاشة الرئيسية (+)",
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        Text(
+                            text = "اختر أي تطبيق مصغر أو ويدجيت لوضعه على سطح الشاشة",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                        )
+                    }
+                }
+            }
 
             Card(
                 onClick = onOpenWidgets,

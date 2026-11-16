@@ -8,6 +8,7 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rift.data.settings.SettingsRepository
+import com.rift.data.widgets.AppWidgetGroup
 import com.rift.data.widgets.WidgetHostManager
 import com.rift.data.workspace.WorkspaceItemEntity
 import com.rift.data.workspace.WorkspaceRepository
@@ -22,13 +23,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-data class AppWidgetGroup(
-    val packageName: String,
-    val appName: String,
-    val appIcon: Bitmap?,
-    val widgets: List<AppWidgetProviderInfo>,
-)
 
 data class WidgetsUiState(
     val placedWidgets: List<WorkspaceItemEntity> = emptyList(),
@@ -52,7 +46,7 @@ class WidgetsViewModel @Inject constructor(
     val widgetGroups: StateFlow<List<AppWidgetGroup>> = _widgetGroups.asStateFlow()
 
     val uiState: StateFlow<WidgetsUiState> = combine(
-        workspaceRepository.getAllWidgets(),
+        workspaceRepository.getWidgetsByContainer(WorkspaceItemEntity.CONTAINER_WIDGETS_PAGE),
         settingsRepository.settings,
         _availableProviders,
         _widgetGroups,
@@ -106,7 +100,7 @@ class WidgetsViewModel @Inject constructor(
                 // Successfully bound, persist to workspace
                 val entity = WorkspaceItemEntity(
                     type = WorkspaceItemEntity.TYPE_WIDGET,
-                    container = WorkspaceItemEntity.CONTAINER_DESKTOP,
+                    container = WorkspaceItemEntity.CONTAINER_WIDGETS_PAGE,
                     page = 0,
                     cellX = 0,
                     cellY = 0,
@@ -129,7 +123,7 @@ class WidgetsViewModel @Inject constructor(
         viewModelScope.launch {
             val entity = WorkspaceItemEntity(
                 type = WorkspaceItemEntity.TYPE_WIDGET,
-                container = WorkspaceItemEntity.CONTAINER_DESKTOP,
+                container = WorkspaceItemEntity.CONTAINER_WIDGETS_PAGE,
                 page = 0,
                 cellX = 0,
                 cellY = 0,

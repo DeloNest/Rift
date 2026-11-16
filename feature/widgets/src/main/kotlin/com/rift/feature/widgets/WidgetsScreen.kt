@@ -10,6 +10,7 @@ import android.os.BatteryManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import com.rift.data.widgets.AppWidgetGroup
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
@@ -206,7 +207,7 @@ fun WidgetsScreen(
                     ) { _, widgetItem ->
                         SystemWidgetCard(
                             item = widgetItem,
-                            viewModel = viewModel,
+                            widgetHostManager = viewModel.widgetHostManager,
                             onLongPress = { selectedWidgetForAction = widgetItem },
                         )
                     }
@@ -424,14 +425,14 @@ fun BuiltInSmartGlanceWidget(
 @Composable
 fun SystemWidgetCard(
     item: WorkspaceItemEntity,
-    viewModel: WidgetsViewModel,
+    widgetHostManager: com.rift.data.widgets.WidgetHostManager,
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val hostView = remember(item.appWidgetId) {
         item.appWidgetId?.let { id ->
-            viewModel.widgetHostManager.obtainView(context, id)
+            widgetHostManager.obtainView(context, id)
         }
     }
 
@@ -740,9 +741,10 @@ fun AppWidgetAccordionItem(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // App Icon
-                if (group.appIcon != null) {
+                val groupIcon = group.appIcon
+                if (groupIcon != null) {
                     Image(
-                        bitmap = group.appIcon.asImageBitmap(),
+                        bitmap = groupIcon.asImageBitmap(),
                         contentDescription = group.appName,
                         modifier = Modifier
                             .size(42.dp)

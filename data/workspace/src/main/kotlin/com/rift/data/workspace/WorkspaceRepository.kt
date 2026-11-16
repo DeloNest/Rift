@@ -10,6 +10,7 @@ interface WorkspaceRepository {
     fun getDockItems(): Flow<List<WorkspaceItemEntity>>
     fun getFolderItems(folderId: Long): Flow<List<WorkspaceItemEntity>>
     fun getAllWidgets(): Flow<List<WorkspaceItemEntity>>
+    fun getWidgetsByContainer(container: Long): Flow<List<WorkspaceItemEntity>>
     suspend fun getPages(): List<Int>
     suspend fun addItem(item: WorkspaceItemEntity): Long
     suspend fun updateItem(item: WorkspaceItemEntity)

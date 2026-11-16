@@ -24,6 +24,9 @@ interface WorkspaceDao {
     @Query("SELECT * FROM workspace_item WHERE type = ${WorkspaceItemEntity.TYPE_WIDGET}")
     fun getAllWidgets(): Flow<List<WorkspaceItemEntity>>
 
+    @Query("SELECT * FROM workspace_item WHERE type = ${WorkspaceItemEntity.TYPE_WIDGET} AND container = :container ORDER BY rank")
+    fun getWidgetsByContainer(container: Long): Flow<List<WorkspaceItemEntity>>
+
     @Query("SELECT DISTINCT page FROM workspace_item WHERE container = :container ORDER BY page")
     suspend fun getPages(container: Long): List<Int>
 
