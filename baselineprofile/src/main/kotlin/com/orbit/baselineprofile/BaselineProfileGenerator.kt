@@ -1,0 +1,25 @@
+package com.orbit.baselineprofile
+
+import androidx.benchmark.macro.junit4.BaselineProfileRule
+import org.junit.Rule
+import org.junit.Test
+
+/**
+ * Generates Baseline Profiles for Orbit Launcher (plan section 8.2).
+ */
+class BaselineProfileGenerator {
+
+    @get:Rule
+    val rule = BaselineProfileRule()
+
+    @Test
+    fun generate() {
+        rule.collect(
+            packageName = "com.orbit.launcher",
+        ) {
+            pressHome()
+            startActivityAndWait()
+            // TODO: Add interactions — scroll drawer, open folders, search
+        }
+    }
+}
