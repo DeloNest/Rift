@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rift.core.icons.IconPackInfo
+import com.rift.core.icons.IconPackManager
 import com.rift.data.apps.AppInfo
 import com.rift.data.apps.AppsRepository
 import com.rift.data.settings.DarkMode
@@ -38,6 +40,7 @@ class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val appsRepository: AppsRepository,
     private val updateManager: UpdateManager,
+    private val iconPackManager: IconPackManager,
 ) : ViewModel() {
 
     val settings: StateFlow<RiftSettings> = settingsRepository.settings
@@ -46,6 +49,19 @@ class SettingsViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = RiftSettings()
         )
+
+    private val _installedIconPacks = MutableStateFlow<List<IconPackInfo>>(emptyList())
+    val installedIconPacks: StateFlow<List<IconPackInfo>> = _installedIconPacks.asStateFlow()
+
+    init {
+        loadInstalledIconPacks()
+    }
+
+    fun loadInstalledIconPacks() {
+        viewModelScope.launch {
+            _installedIconPacks.value = iconPackManager.getInstalledIconPacks()
+        }
+    }
 
     val hiddenApps: StateFlow<List<AppInfo>> = combine(
         appsRepository.allApps,
@@ -69,7 +85,7 @@ class SettingsViewModel @Inject constructor(
     private val _updateUiState = MutableStateFlow<UpdateUiState>(UpdateUiState.Idle)
     val updateUiState: StateFlow<UpdateUiState> = _updateUiState.asStateFlow()
 
-    val currentVersionName: String = "1.0.9"
+    val currentVersionName: String = "1.0.10"
 
     fun checkForUpdates() {
         viewModelScope.launch {
@@ -198,6 +214,33 @@ class SettingsViewModel @Inject constructor(
     fun setDrawerSortMode(mode: DrawerSortMode) {
         viewModelScope.launch {
             settingsRepository.update { it.copy(drawerSortMode = mode) }
+        }
+    }
+
+    fun setIconShape(shape: String) {
+        viewModelScope.launch {
+            settingsRepository.update { it.copy(iconShape = shape) }
+        }
+    }
+
+    fun setIconPack(packageName: String?) {
+        viewModelScope.launch {
+            iconPackManager.clearCache()
+            settingsRepository.update { it.copy(iconPackPackage = packageName) }
+        }
+    }
+
+    fun openPlayStoreForIconPacks(context: Context) {
+        runCatching {
+            val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("market://search?q=icon+pack&c=apps")).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(intent)
+        }.recoverCatching {
+            val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://play.google.com/store/search?q=icon+pack&c=apps")).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(intent)
         }
     }
 }

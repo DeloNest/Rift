@@ -20,6 +20,8 @@ import javax.inject.Inject
 data class HomeUiState(
     val hasCompletedSetup: Boolean = false,
     val useSystemWallpaper: Boolean = true,
+    val iconShape: String = "SYSTEM",
+    val iconPackPackage: String? = null,
     val favoriteApps: List<AppInfo> = emptyList(),
     val desktopApps: List<AppInfo> = emptyList(),
     val allInstalledApps: List<AppInfo> = emptyList(),
@@ -68,6 +70,8 @@ class HomeViewModel @Inject constructor(
         HomeUiState(
             hasCompletedSetup = settings.hasCompletedSetup,
             useSystemWallpaper = settings.useSystemWallpaper,
+            iconShape = settings.iconShape,
+            iconPackPackage = settings.iconPackPackage,
             favoriteApps = favoriteApps,
             desktopApps = desktopApps,
             allInstalledApps = apps,

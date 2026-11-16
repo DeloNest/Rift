@@ -21,19 +21,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.AlertDialog
@@ -76,6 +77,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -83,6 +85,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.rift.core.icons.IconPackInfo
 import com.rift.core.ui.AppIcon
 import com.rift.data.apps.AppInfo
 import com.rift.data.settings.DarkMode
@@ -98,10 +101,12 @@ fun SettingsScreen(
     val settings by viewModel.settings.collectAsState()
     val hiddenApps by viewModel.hiddenApps.collectAsState()
     val allApps by viewModel.allApps.collectAsState()
+    val installedIconPacks by viewModel.installedIconPacks.collectAsState()
     val updateUiState by viewModel.updateUiState.collectAsState()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     var showHiddenAppsSheet by remember { mutableStateOf(false) }
+    var showIconPacksSheet by remember { mutableStateOf(false) }
 
     // RTL for Arabic UI
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
@@ -223,6 +228,80 @@ fun SettingsScreen(
                             checked = settings.dynamicColor,
                             onCheckedChange = { viewModel.setDynamicColor(it) },
                         )
+                    }
+                }
+
+                // Section: Icon Packs & Shapes
+                item {
+                    SettingsSectionTitle("حزم وشكل الأيقونات (Icon Packs & Shapes)")
+                }
+
+                item {
+                    SettingsCard {
+                        // Icon Shape
+                        val currentShape = settings.iconShape.uppercase()
+                        SettingsRow(
+                            icon = Icons.Default.Apps,
+                            title = "شكل الأيقونات",
+                            subtitle = when (currentShape) {
+                                "CIRCLE" -> "دائري بالكامل"
+                                "SQUIRCLE" -> "سكويركل انسيابي"
+                                "ROUNDED_SQUARE" -> "مربع بزوايا دائرية"
+                                "TEARDROP" -> "شكل قطرة ماء"
+                                else -> "تلقائي (حسب النظام والشركة)"
+                            },
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                ModePill(
+                                    label = "النظام",
+                                    selected = currentShape != "CIRCLE" && currentShape != "SQUIRCLE" && currentShape != "ROUNDED_SQUARE" && currentShape != "TEARDROP",
+                                    onClick = { viewModel.setIconShape("SYSTEM") },
+                                )
+                                ModePill(
+                                    label = "دائري",
+                                    selected = currentShape == "CIRCLE",
+                                    onClick = { viewModel.setIconShape("CIRCLE") },
+                                )
+                                ModePill(
+                                    label = "سكويركل",
+                                    selected = currentShape == "SQUIRCLE",
+                                    onClick = { viewModel.setIconShape("SQUIRCLE") },
+                                )
+                                ModePill(
+                                    label = "قطرة",
+                                    selected = currentShape == "TEARDROP",
+                                    onClick = { viewModel.setIconShape("TEARDROP") },
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Icon Pack Selector
+                        val activePackName = remember(settings.iconPackPackage, installedIconPacks) {
+                            if (settings.iconPackPackage.isNullOrBlank()) {
+                                "أيقونات النظام الافتراضية"
+                            } else {
+                                installedIconPacks.find { it.packageName == settings.iconPackPackage }?.name
+                                    ?: settings.iconPackPackage!!
+                            }
+                        }
+
+                        SettingsRow(
+                            icon = Icons.Default.ColorLens,
+                            title = "حزمة الأيقونات (Icon Pack)",
+                            subtitle = activePackName,
+                        ) {
+                            FilledTonalButton(
+                                onClick = {
+                                    viewModel.loadInstalledIconPacks()
+                                    showIconPacksSheet = true
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                            ) {
+                                Text("تغيير الحزمة")
+                            }
+                        }
                     }
                 }
 
@@ -440,6 +519,19 @@ fun SettingsScreen(
                     onHideApp = { viewModel.hideApp(it) },
                     onUnhideApp = { viewModel.unhideApp(it) },
                     onDismiss = { showHiddenAppsSheet = false },
+                )
+            }
+
+            if (showIconPacksSheet) {
+                IconPacksModalSheet(
+                    installedPacks = installedIconPacks,
+                    currentPackPackage = settings.iconPackPackage,
+                    onSelectPack = { packPkg ->
+                        viewModel.setIconPack(packPkg)
+                        showIconPacksSheet = false
+                    },
+                    onOpenStore = { viewModel.openPlayStoreForIconPacks(context) },
+                    onDismiss = { showIconPacksSheet = false },
                 )
             }
         }
@@ -946,6 +1038,231 @@ private fun HiddenAppRowItem(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("إخفاء")
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun IconPacksModalSheet(
+    installedPacks: List<IconPackInfo>,
+    currentPackPackage: String?,
+    onSelectPack: (String?) -> Unit,
+    onOpenStore: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text(
+                        text = "اختيار حزمة الأيقونات (Icon Pack)",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    )
+                    Text(
+                        text = "اختر من الحزم المثبتة على جهازك أو قم بتثبيت حزم جديدة",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "إغلاق")
+                }
+            }
+
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(340.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                // Item 1: System Default
+                item {
+                    val isSystemSelected = currentPackPackage.isNullOrBlank()
+                    Surface(
+                        onClick = { onSelectPack(null) },
+                        shape = RoundedCornerShape(14.dp),
+                        color = if (isSystemSelected) {
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.secondaryContainer),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Apps,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "أيقونات النظام الافتراضية",
+                                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                                    )
+                                    Text(
+                                        text = "الأيقونات الأصلية المدمجة في نظام جهازك",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                            if (isSystemSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "محدد",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (installedPacks.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 24.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "لم يتم العثور على أي حزم أيقونات خارجية مثبتة.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                } else {
+                    // Installed Icon Packs
+                    items(
+                        count = installedPacks.size,
+                        key = { installedPacks[it].packageName },
+                    ) { index ->
+                        val pack = installedPacks[index]
+                        val isSelected = currentPackPackage == pack.packageName
+                        Surface(
+                            onClick = { onSelectPack(pack.packageName) },
+                            shape = RoundedCornerShape(14.dp),
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    val packIcon = pack.icon
+                                    if (packIcon != null) {
+                                        androidx.compose.foundation.Image(
+                                            bitmap = packIcon.asImageBitmap(),
+                                            contentDescription = pack.name,
+                                            modifier = Modifier
+                                                .size(42.dp)
+                                                .clip(RoundedCornerShape(12.dp)),
+                                        )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(42.dp)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(MaterialTheme.colorScheme.primaryContainer),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.ColorLens,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            text = pack.name,
+                                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                                        )
+                                        Text(
+                                            text = pack.packageName,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = "محدد",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Bottom action: Download icon packs from store
+            Button(
+                onClick = onOpenStore,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 20.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Download,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("تثبيت حزم أيقونات إضافية من Google Play")
             }
         }
     }

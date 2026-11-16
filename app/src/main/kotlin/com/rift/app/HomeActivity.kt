@@ -9,6 +9,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.rift.core.designsystem.theme.RiftTheme
+import com.rift.core.icons.IconPackManager
 import com.rift.data.widgets.WidgetHostManager
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -18,6 +19,9 @@ class HomeActivity : ComponentActivity() {
 
     @Inject
     lateinit var widgetHostManager: WidgetHostManager
+
+    @Inject
+    lateinit var iconPackManager: IconPackManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,7 +33,7 @@ class HomeActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = Color.Transparent,
                 ) {
-                    RiftLauncherRoot()
+                    RiftLauncherRoot(iconPackManager = iconPackManager)
                 }
             }
         }

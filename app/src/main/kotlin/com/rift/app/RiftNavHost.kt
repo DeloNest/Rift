@@ -12,6 +12,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,6 +22,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rift.app.service.RiftAccessibilityService
+import com.rift.core.icons.IconPackManager
+import com.rift.core.ui.LocalIconPackManager
+import com.rift.core.ui.LocalIconPackPackage
+import com.rift.core.ui.LocalIconShape
 import com.rift.feature.drawer.DrawerScreen
 import com.rift.feature.home.HomeScreen
 import com.rift.feature.home.HomeViewModel
@@ -45,6 +50,7 @@ enum class LauncherScreen {
 @Composable
 fun RiftLauncherRoot(
     modifier: Modifier = Modifier,
+    iconPackManager: IconPackManager? = null,
     homeViewModel: HomeViewModel = hiltViewModel(),
 ) {
     val homeUiState by homeViewModel.uiState.collectAsStateWithLifecycle()
@@ -57,9 +63,14 @@ fun RiftLauncherRoot(
         )
     }
 
-    BackHandler(enabled = currentScreen != LauncherScreen.HOME && currentScreen != LauncherScreen.SETUP) {
-        currentScreen = LauncherScreen.HOME
-    }
+    CompositionLocalProvider(
+        LocalIconShape provides homeUiState.iconShape,
+        LocalIconPackPackage provides homeUiState.iconPackPackage,
+        LocalIconPackManager provides iconPackManager,
+    ) {
+        BackHandler(enabled = currentScreen != LauncherScreen.HOME && currentScreen != LauncherScreen.SETUP) {
+            currentScreen = LauncherScreen.HOME
+        }
 
     AnimatedContent(
         targetState = currentScreen,
@@ -120,6 +131,7 @@ fun RiftLauncherRoot(
             }
         }
     }
+}
 
     if (showAccessibilityDialog) {
         AlertDialog(
