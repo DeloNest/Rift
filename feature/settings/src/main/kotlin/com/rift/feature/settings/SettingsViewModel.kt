@@ -4,7 +4,10 @@ import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rift.data.apps.AppInfo
+import com.rift.data.apps.AppsRepository
 import com.rift.data.settings.DarkMode
+import com.rift.data.settings.DrawerSortMode
 import com.rift.data.settings.RiftSettings
 import com.rift.data.settings.SettingsRepository
 import com.rift.data.settings.updater.UpdateCheckResult
@@ -14,6 +17,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -31,6 +36,7 @@ sealed interface UpdateUiState {
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
+    private val appsRepository: AppsRepository,
     private val updateManager: UpdateManager,
 ) : ViewModel() {
 
@@ -41,10 +47,29 @@ class SettingsViewModel @Inject constructor(
             initialValue = RiftSettings()
         )
 
+    val hiddenApps: StateFlow<List<AppInfo>> = combine(
+        appsRepository.allApps,
+        settingsRepository.settings,
+    ) { apps, s ->
+        val hiddenSet = s.hiddenAppPackages.toSet()
+        apps.filter { hiddenSet.contains(it.packageName) }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyList()
+    )
+
+    val allApps: StateFlow<List<AppInfo>> = appsRepository.allApps
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList()
+        )
+
     private val _updateUiState = MutableStateFlow<UpdateUiState>(UpdateUiState.Idle)
     val updateUiState: StateFlow<UpdateUiState> = _updateUiState.asStateFlow()
 
-    val currentVersionName: String = "1.0.8"
+    val currentVersionName: String = "1.0.9"
 
     fun checkForUpdates() {
         viewModelScope.launch {
@@ -79,42 +104,35 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun openInObtainium(context: Context) {
-        val obtainiumUri = updateManager.getObtainiumUri(settings.value.updateRepo)
-        val intent = Intent(Intent.ACTION_VIEW, obtainiumUri).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+    fun unhideApp(packageName: String) {
+        viewModelScope.launch {
+            val current = settingsRepository.settings.first().hiddenAppPackages.toMutableList()
+            current.remove(packageName)
+            settingsRepository.update { it.copy(hiddenAppPackages = current) }
         }
-        try {
-            context.startActivity(intent)
-        } catch (e: Exception) {
-            val browserIntent = Intent(Intent.ACTION_VIEW, updateManager.getObtainiumDownloadUrl()).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+    }
+
+    fun hideApp(packageName: String) {
+        viewModelScope.launch {
+            val current = settingsRepository.settings.first().hiddenAppPackages.toMutableList()
+            if (!current.contains(packageName)) {
+                current.add(packageName)
+                settingsRepository.update { it.copy(hiddenAppPackages = current) }
             }
-            context.startActivity(browserIntent)
         }
     }
 
-    fun openGitHubReleases(context: Context) {
-        val uri = updateManager.getGitHubReleasesUrl(settings.value.updateRepo)
-        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+    fun setGridSize(columns: Int, rows: Int) {
+        viewModelScope.launch {
+            settingsRepository.update {
+                it.copy(gridColumns = columns, gridRows = rows)
+            }
         }
-        context.startActivity(intent)
-    }
-
-    fun resetUpdateState() {
-        _updateUiState.value = UpdateUiState.Idle
     }
 
     fun setDarkMode(mode: DarkMode) {
         viewModelScope.launch {
             settingsRepository.update { it.copy(darkMode = mode) }
-        }
-    }
-
-    fun setDynamicColor(enabled: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.update { it.copy(dynamicColor = enabled) }
         }
     }
 
@@ -142,7 +160,42 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun setDrawerSortMode(mode: com.rift.data.settings.DrawerSortMode) {
+    fun resetUpdateState() {
+        _updateUiState.value = UpdateUiState.Idle
+    }
+
+    fun setDynamicColor(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.update { it.copy(dynamicColor = enabled) }
+        }
+    }
+
+    fun openInObtainium(context: Context) {
+        val repo = settings.value.updateRepo
+        val obtainiumIntent = Intent(Intent.ACTION_VIEW, updateManager.getObtainiumUri(repo)).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        val fallbackIntent = Intent(Intent.ACTION_VIEW, updateManager.getObtainiumDownloadUrl()).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        runCatching {
+            context.startActivity(obtainiumIntent)
+        }.recoverCatching {
+            context.startActivity(fallbackIntent)
+        }
+    }
+
+    fun openGitHubReleases(context: Context) {
+        val repo = settings.value.updateRepo
+        val intent = Intent(Intent.ACTION_VIEW, updateManager.getGitHubReleasesUrl(repo)).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        runCatching {
+            context.startActivity(intent)
+        }
+    }
+
+    fun setDrawerSortMode(mode: DrawerSortMode) {
         viewModelScope.launch {
             settingsRepository.update { it.copy(drawerSortMode = mode) }
         }

@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -272,6 +273,10 @@ fun DrawerScreen(
                     },
                     onRequestUninstall = {
                         viewModel.requestUninstallApp(context, app)
+                        selectedAppForAction = null
+                    },
+                    onHideApp = {
+                        viewModel.hideApp(app)
                         selectedAppForAction = null
                     },
                     onDismiss = { selectedAppForAction = null },
@@ -648,6 +653,7 @@ fun DrawerAppActionBottomSheet(
     onChangeCategory: () -> Unit,
     onOpenAppDetails: () -> Unit,
     onRequestUninstall: () -> Unit,
+    onHideApp: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState()
@@ -711,6 +717,13 @@ fun DrawerAppActionBottomSheet(
                 icon = Icons.Default.Info,
                 title = "معلومات التطبيق",
                 onClick = onOpenAppDetails,
+            )
+
+            DrawerActionCard(
+                icon = Icons.Default.VisibilityOff,
+                title = "إخفاء التطبيق من درج التطبيقات",
+                onClick = onHideApp,
+                isDestructive = true,
             )
 
             DrawerActionCard(

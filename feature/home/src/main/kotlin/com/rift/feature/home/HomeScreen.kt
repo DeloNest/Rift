@@ -102,6 +102,7 @@ fun HomeScreen(
     onOpenSearch: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onOpenWidgets: () -> Unit = {},
+    onDoubleTapWallpaper: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -129,9 +130,12 @@ fun HomeScreen(
                 .then(bgModifier)
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                // Long press on empty wallpaper area opens quick desktop menu
+                // Double tap to sleep / Long press on empty wallpaper
                 .pointerInput(Unit) {
                     detectTapGestures(
+                        onDoubleTap = {
+                            onDoubleTapWallpaper()
+                        },
                         onLongPress = {
                             showDesktopMenuSheet = true
                         }

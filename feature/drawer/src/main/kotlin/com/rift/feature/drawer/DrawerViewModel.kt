@@ -69,7 +69,10 @@ class DrawerViewModel @Inject constructor(
             grouped[cat] = mutableListOf()
         }
 
-        for (app in apps) {
+        val hiddenSet = settings.hiddenAppPackages.toSet()
+        val visibleApps = apps.filterNot { hiddenSet.contains(it.packageName) }
+
+        for (app in visibleApps) {
             val category = appCategorizer.categorize(app)
             grouped[category]?.add(app)
         }
@@ -82,7 +85,7 @@ class DrawerViewModel @Inject constructor(
             )
         }
 
-        val allAlphabetical = apps.sortedBy { it.label.lowercase() }
+        val allAlphabetical = visibleApps.sortedBy { it.label.lowercase() }
 
         DrawerUiState(
             selectedCategory = selectedCat,
@@ -91,7 +94,7 @@ class DrawerViewModel @Inject constructor(
             currentCategoryApps = finalMap[selectedCat] ?: emptyList(),
             allAlphabeticalApps = allAlphabetical,
             sortMode = settings.drawerSortMode,
-            totalAppsCount = apps.size,
+            totalAppsCount = visibleApps.size,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -184,6 +187,16 @@ class DrawerViewModel @Inject constructor(
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
+        }
+    }
+
+    fun hideApp(app: AppInfo) {
+        viewModelScope.launch {
+            val currentHidden = settingsRepository.settings.first().hiddenAppPackages.toMutableList()
+            if (!currentHidden.contains(app.packageName)) {
+                currentHidden.add(app.packageName)
+                settingsRepository.update { it.copy(hiddenAppPackages = currentHidden) }
+            }
         }
     }
 

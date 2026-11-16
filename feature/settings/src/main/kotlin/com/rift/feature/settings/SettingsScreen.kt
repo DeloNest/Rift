@@ -30,6 +30,10 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.AlertDialog
@@ -39,11 +43,18 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -53,12 +64,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -69,6 +83,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.rift.core.ui.AppIcon
+import com.rift.data.apps.AppInfo
 import com.rift.data.settings.DarkMode
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,9 +96,12 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.settings.collectAsState()
+    val hiddenApps by viewModel.hiddenApps.collectAsState()
+    val allApps by viewModel.allApps.collectAsState()
     val updateUiState by viewModel.updateUiState.collectAsState()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
+    var showHiddenAppsSheet by remember { mutableStateOf(false) }
 
     // RTL for Arabic UI
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
@@ -239,6 +258,35 @@ fun SettingsScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
+                        // Hidden Apps Manager
+                        SettingsRow(
+                            icon = Icons.Default.VisibilityOff,
+                            title = "التطبيقات المخفية",
+                            subtitle = if (settings.hiddenAppPackages.isEmpty()) {
+                                "لا توجد تطبيقات مخفية من الدرج"
+                            } else {
+                                "${settings.hiddenAppPackages.size} تطبيق مخفي من درج التطبيقات"
+                            },
+                        ) {
+                            FilledTonalButton(
+                                onClick = { showHiddenAppsSheet = true },
+                                shape = RoundedCornerShape(12.dp),
+                            ) {
+                                Text("إدارة")
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Double tap to sleep info
+                        SettingsRow(
+                            icon = Icons.Default.CheckCircle,
+                            title = "النقر المزدوج للقفل (Double Tap to Sleep)",
+                            subtitle = "مفعّل تلقائياً: انقر مرتين في أي مكان فارغ على الشاشة الرئيسية لقفل الشاشة فوراً مع الحفاظ على الفتح بالبصمة.",
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
                         SettingsRow(
                             icon = Icons.Default.Refresh,
                             title = "معالج الإعداد الأولي (Setup Wizard)",
@@ -383,6 +431,16 @@ fun SettingsScreen(
                 }
 
                 else -> {}
+            }
+
+            if (showHiddenAppsSheet) {
+                HiddenAppsModalSheet(
+                    allApps = allApps,
+                    hiddenPackageNames = settings.hiddenAppPackages,
+                    onHideApp = { viewModel.hideApp(it) },
+                    onUnhideApp = { viewModel.unhideApp(it) },
+                    onDismiss = { showHiddenAppsSheet = false },
+                )
             }
         }
     }
@@ -662,6 +720,233 @@ private fun ModePill(
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                 color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HiddenAppsModalSheet(
+    allApps: List<AppInfo>,
+    hiddenPackageNames: List<String>,
+    onHideApp: (String) -> Unit,
+    onUnhideApp: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var searchQuery by remember { mutableStateOf("") }
+    var showOnlyHidden by remember { mutableStateOf(false) }
+
+    val hiddenSet = remember(hiddenPackageNames) { hiddenPackageNames.toSet() }
+
+    val filteredApps = remember(allApps, hiddenSet, searchQuery, showOnlyHidden) {
+        allApps.filter { app ->
+            val matchesFilter = if (showOnlyHidden) hiddenSet.contains(app.packageName) else true
+            val matchesSearch = searchQuery.isBlank() ||
+                app.label.contains(searchQuery, ignoreCase = true) ||
+                app.packageName.contains(searchQuery, ignoreCase = true)
+            matchesFilter && matchesSearch
+        }.sortedWith(
+            compareByDescending<AppInfo> { hiddenSet.contains(it.packageName) }
+                .thenBy { it.label.lowercase() }
+        )
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text(
+                        text = "إدارة التطبيقات المخفية",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    )
+                    Text(
+                        text = "${hiddenPackageNames.size} تطبيق مخفي حالياً من الدرج",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "إغلاق")
+                }
+            }
+
+            // Search Bar
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("بحث عن تطبيق بالاسم أو الحزمة...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Close, contentDescription = "مسح")
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+            )
+
+            // Filter Chips
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = !showOnlyHidden,
+                    onClick = { showOnlyHidden = false },
+                    label = { Text("جميع التطبيقات (${allApps.size})") },
+                )
+                FilterChip(
+                    selected = showOnlyHidden,
+                    onClick = { showOnlyHidden = true },
+                    label = { Text("المخفية فقط (${hiddenPackageNames.size})") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.VisibilityOff,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    },
+                )
+            }
+
+            // Apps List
+            if (filteredApps.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = if (showOnlyHidden && hiddenPackageNames.isEmpty()) {
+                            "لا توجد أي تطبيقات مخفية حالياً"
+                        } else {
+                            "لا توجد نتائج مطابقة للبحث"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(380.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(bottom = 24.dp),
+                ) {
+                    items(
+                        count = filteredApps.size,
+                        key = { filteredApps[it].packageName },
+                    ) { index ->
+                        val app = filteredApps[index]
+                        val isHidden = hiddenSet.contains(app.packageName)
+                        HiddenAppRowItem(
+                            app = app,
+                            isHidden = isHidden,
+                            onToggleHide = {
+                                if (isHidden) {
+                                    onUnhideApp(app.packageName)
+                                } else {
+                                    onHideApp(app.packageName)
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HiddenAppRowItem(
+    app: AppInfo,
+    isHidden: Boolean,
+    onToggleHide: () -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = if (isHidden) {
+            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AppIcon(app = app, size = 42.dp)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = app.label,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    )
+                    Text(
+                        text = if (isHidden) "مخفي من درج التطبيقات" else app.packageName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isHidden) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            if (isHidden) {
+                Button(
+                    onClick = onToggleHide,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                    ),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Visibility,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("إظهار")
+                }
+            } else {
+                OutlinedButton(
+                    onClick = onToggleHide,
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.VisibilityOff,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("إخفاء")
+                }
+            }
         }
     }
 }
