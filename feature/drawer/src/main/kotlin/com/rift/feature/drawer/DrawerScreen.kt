@@ -7,6 +7,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -30,16 +31,16 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -59,8 +60,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -68,6 +70,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rift.data.apps.AppCategory
@@ -277,7 +280,48 @@ fun TopDrawerHeader(
 }
 
 /**
- * Single app grid cell with icon, label, and long-press support.
+ * App Icon Image Composable with system icon caching and stylized fallback.
+ */
+@Composable
+fun AppIconImage(
+    app: AppInfo,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val imageBitmap = remember(app.packageName) {
+        runCatching {
+            val pm = context.packageManager
+            val drawable = pm.getActivityIcon(app.componentName)
+            val bmp = drawable.toBitmap(width = 120, height = 120)
+            bmp.asImageBitmap()
+        }.getOrNull()
+    }
+
+    if (imageBitmap != null) {
+        Image(
+            bitmap = imageBitmap,
+            contentDescription = app.label,
+            modifier = modifier.clip(RoundedCornerShape(16.dp)),
+        )
+    } else {
+        Surface(
+            modifier = modifier.clip(RoundedCornerShape(16.dp)),
+            color = MaterialTheme.colorScheme.primaryContainer,
+            tonalElevation = 2.dp,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = app.label.take(1),
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Single app grid cell with real icon, label, and long-press support.
  */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -297,22 +341,11 @@ fun DrawerAppItem(
             .padding(vertical = 6.dp, horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // App Icon container with Expressive shape
-        Surface(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(RoundedCornerShape(18.dp)),
-            color = MaterialTheme.colorScheme.primaryContainer,
-            tonalElevation = 2.dp,
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = app.label.take(1),
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-            }
-        }
+        // Real App Icon
+        AppIconImage(
+            app = app,
+            modifier = Modifier.size(54.dp),
+        )
 
         Spacer(modifier = Modifier.height(6.dp))
 
@@ -344,7 +377,7 @@ fun BottomCategoryPill(
             .padding(horizontal = 24.dp)
             .height(58.dp),
         shape = RoundedCornerShape(29.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
         tonalElevation = 8.dp,
         shadowElevation = 12.dp,
     ) {
@@ -392,10 +425,10 @@ fun BottomCategoryPill(
  * Maps each AppCategory to a clean icon matching the user's screenshot.
  */
 fun getCategoryIcon(category: AppCategory): ImageVector = when (category) {
-    AppCategory.GENERAL -> Icons.Default.MoreVert
-    AppCategory.COMMUNICATION -> Icons.Default.Email
-    AppCategory.INTERNET -> Icons.Default.ShoppingCart
-    AppCategory.GAMES -> Icons.Default.PlayArrow
+    AppCategory.GENERAL -> Icons.Default.Apps
+    AppCategory.COMMUNICATION -> Icons.AutoMirrored.Filled.Chat
+    AppCategory.INTERNET -> Icons.Default.Language
+    AppCategory.GAMES -> Icons.Default.SportsEsports
     AppCategory.MEDIA -> Icons.Default.PlayArrow
     AppCategory.UTILITIES -> Icons.Default.Build
 }

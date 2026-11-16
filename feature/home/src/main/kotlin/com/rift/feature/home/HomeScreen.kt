@@ -1,15 +1,12 @@
 package com.rift.feature.home
 
 import android.text.format.DateFormat
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,9 +20,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Search
@@ -40,7 +37,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -56,6 +52,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
@@ -106,18 +103,26 @@ fun HomeScreen(
                     )
                 )
                 .statusBarsPadding()
-                .navigationBarsPadding(),
+                .navigationBarsPadding()
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures { _, dragAmount ->
+                        if (dragAmount < -30) {
+                            onOpenDrawer()
+                        }
+                    }
+                },
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 20.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween,
             ) {
-                // Top Header Row
+                // 1. Top Header Row
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -148,98 +153,104 @@ fun HomeScreen(
                     }
                 }
 
-                // Center Clock & Welcome Hero Card
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.weight(1f, fill = false),
+                // 2. Center Clock & Welcome Hero Card (Fills remaining space cleanly)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    // Big Clock
-                    Text(
-                        text = if (currentTime.isNotEmpty()) currentTime else "12:00",
-                        style = MaterialTheme.typography.displayLarge.copy(
-                            fontWeight = FontWeight.Light,
-                            fontSize = 72.sp,
-                            letterSpacing = (-2).sp,
-                        ),
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-
-                    // Arabic Date
-                    Text(
-                        text = currentDate,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Welcome Card
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(28.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        ),
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
-                        Column(
-                            modifier = Modifier.padding(20.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        // Big Clock
+                        Text(
+                            text = if (currentTime.isNotEmpty()) currentTime else "12:00",
+                            style = MaterialTheme.typography.displayLarge.copy(
+                                fontWeight = FontWeight.Light,
+                                fontSize = 68.sp,
+                                letterSpacing = (-2).sp,
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+
+                        // Arabic Date
+                        Text(
+                            text = if (currentDate.isNotEmpty()) currentDate else "مشغّل Rift",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // Welcome Hero Card
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(28.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                            ),
                         ) {
-                            Text(
-                                text = "مرحباً بك في مشغّل Rift 👋",
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.Center,
-                            )
-
-                            Text(
-                                text = "مشغّل سريع، مصنف بذكاء، وبخصوصية تامة 100% بدون أي إعلانات أو تتبع.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                            )
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly,
+                            Column(
+                                modifier = Modifier.padding(20.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
-                                FeatureBadge(icon = Icons.Default.Widgets, label = "تصنيف تلقائي")
-                                FeatureBadge(icon = Icons.Default.Speed, label = "سلاسة 120Hz")
-                                FeatureBadge(icon = Icons.Default.Shield, label = "خصوصية مطلقة")
-                            }
-
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            // Explore Drawer Button
-                            Button(
-                                onClick = onOpenDrawer,
-                                shape = RoundedCornerShape(16.dp),
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                                ),
-                            ) {
-                                Icon(Icons.Default.Apps, contentDescription = null, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "فتح درج التطبيقات المصنف (Smart)",
-                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                    text = "مرحباً بك في مشغّل Rift 👋",
+                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center,
                                 )
+
+                                Text(
+                                    text = "مشغّل سريع، مصنف بذكاء، وبخصوصية تامة 100% بدون أي إعلانات أو تتبع.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceEvenly,
+                                ) {
+                                    FeatureBadge(icon = Icons.Default.Widgets, label = "تصنيف تلقائي")
+                                    FeatureBadge(icon = Icons.Default.Speed, label = "سلاسة 120Hz")
+                                    FeatureBadge(icon = Icons.Default.Shield, label = "خصوصية مطلقة")
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                // Explore Drawer Button
+                                Button(
+                                    onClick = onOpenDrawer,
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                                    ),
+                                ) {
+                                    Icon(Icons.Default.Apps, contentDescription = null, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "فتح درج التطبيقات المصنف (Smart)",
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
-                // Bottom Dock Bar (Classic Ergonomic Launcher Dock)
+                // 3. Bottom Dock Bar (Classic Ergonomic Launcher Dock)
                 Surface(
                     shape = RoundedCornerShape(28.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 12.dp),
+                        .padding(bottom = 8.dp),
                 ) {
                     Row(
                         modifier = Modifier

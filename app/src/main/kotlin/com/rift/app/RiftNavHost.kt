@@ -28,7 +28,7 @@ enum class LauncherScreen {
  * Root composable for Rift Launcher with predictive back handling and smooth animated transitions.
  */
 @Composable
-fun RiftApp(modifier: Modifier = Modifier) {
+fun RiftLauncherRoot(modifier: Modifier = Modifier) {
     var currentScreen by remember { mutableStateOf(LauncherScreen.HOME) }
 
     BackHandler(enabled = currentScreen != LauncherScreen.HOME) {

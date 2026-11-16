@@ -5,7 +5,7 @@ import android.os.StrictMode
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
-class RiftApp : Application() {
+class RiftApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
