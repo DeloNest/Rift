@@ -1,5 +1,9 @@
 package com.rift.feature.drawer
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rift.data.apps.AppCategory
@@ -14,6 +18,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -104,6 +109,22 @@ class DrawerViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Direct Touch Reorder: Move category from [fromIndex] to [toIndex].
+     */
+    fun reorderCategories(fromIndex: Int, toIndex: Int) {
+        viewModelScope.launch {
+            val currentList = uiState.value.categories.toMutableList()
+            if (fromIndex in currentList.indices && toIndex in currentList.indices && fromIndex != toIndex) {
+                val item = currentList.removeAt(fromIndex)
+                currentList.add(toIndex, item)
+                settingsRepository.update {
+                    it.copy(categoryOrder = currentList.map { c -> c.name })
+                }
+            }
+        }
+    }
+
     fun moveCategory(category: AppCategory, direction: Int) {
         viewModelScope.launch {
             val currentList = uiState.value.categories.toMutableList()
@@ -123,6 +144,46 @@ class DrawerViewModel @Inject constructor(
         viewModelScope.launch {
             appCategorizer.setOverride(app.packageName, newCategory)
             _manualOrder.value = _manualOrder.value.toMutableMap().also { it[app.packageName] = 0 }
+        }
+    }
+
+    fun addAppToDock(app: AppInfo) {
+        viewModelScope.launch {
+            val currentFavorites = settingsRepository.settings.first().favoriteAppPackages.toMutableList()
+            if (!currentFavorites.contains(app.packageName)) {
+                currentFavorites.add(app.packageName)
+                settingsRepository.update { it.copy(favoriteAppPackages = currentFavorites.take(5)) }
+            }
+        }
+    }
+
+    fun addAppToDesktop(app: AppInfo) {
+        viewModelScope.launch {
+            val currentDesktop = settingsRepository.settings.first().desktopAppPackages.toMutableList()
+            if (!currentDesktop.contains(app.packageName)) {
+                currentDesktop.add(app.packageName)
+                settingsRepository.update { it.copy(desktopAppPackages = currentDesktop) }
+            }
+        }
+    }
+
+    fun openAppDetails(context: Context, app: AppInfo) {
+        runCatching {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", app.packageName, null)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        }
+    }
+
+    fun requestUninstallApp(context: Context, app: AppInfo) {
+        runCatching {
+            val intent = Intent(Intent.ACTION_DELETE).apply {
+                data = Uri.fromParts("package", app.packageName, null)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
         }
     }
 

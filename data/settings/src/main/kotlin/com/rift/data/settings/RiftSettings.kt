@@ -16,6 +16,7 @@ data class RiftSettings(
     // Onboarding / Setup
     val hasCompletedSetup: Boolean = false,
     val favoriteAppPackages: List<String> = emptyList(),
+    val desktopAppPackages: List<String> = emptyList(),
     val drawerSortMode: DrawerSortMode = DrawerSortMode.CATEGORIZED,
     val categoryOrder: List<String> = emptyList(),
 
