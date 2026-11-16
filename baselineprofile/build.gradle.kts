@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.orbit.baselineprofile"
+    namespace = "com.rift.baselineprofile"
     compileSdk = 37
 
     defaultConfig {

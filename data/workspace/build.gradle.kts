@@ -1,11 +1,11 @@
 plugins {
-    id("orbit.android.library")
-    id("orbit.android.hilt")
+    id("rift.android.library")
+    id("rift.android.hilt")
     alias(libs.plugins.room)
 }
 
 android {
-    namespace = "com.orbit.data.workspace"
+    namespace = "com.rift.data.workspace"
 }
 
 room {

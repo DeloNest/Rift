@@ -5,9 +5,9 @@ import org.gradle.kotlin.dsl.dependencies
 class AndroidFeatureConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {
-            pluginManager.apply("orbit.android.library")
-            pluginManager.apply("orbit.android.compose")
-            pluginManager.apply("orbit.android.hilt")
+            pluginManager.apply("rift.android.library")
+            pluginManager.apply("rift.android.compose")
+            pluginManager.apply("rift.android.hilt")
 
             val libs = versionCatalog()
             dependencies {

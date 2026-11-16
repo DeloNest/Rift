@@ -1,11 +1,11 @@
 plugins {
-    id("orbit.android.library")
-    id("orbit.android.hilt")
+    id("rift.android.library")
+    id("rift.android.hilt")
     alias(libs.plugins.kotlin.serialization)
 }
 
 android {
-    namespace = "com.orbit.data.settings"
+    namespace = "com.rift.data.settings"
 }
 
 dependencies {

@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.orbit.benchmark"
+    namespace = "com.rift.benchmark"
     compileSdk = 37
 
     defaultConfig {

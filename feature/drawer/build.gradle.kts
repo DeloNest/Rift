@@ -1,9 +1,9 @@
 plugins {
-    id("orbit.android.feature")
+    id("rift.android.feature")
 }
 
 android {
-    namespace = "com.orbit.feature.drawer"
+    namespace = "com.rift.feature.drawer"
 }
 
 dependencies {

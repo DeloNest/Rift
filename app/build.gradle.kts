@@ -1,15 +1,15 @@
 plugins {
-    id("orbit.android.application")
-    id("orbit.android.compose")
-    id("orbit.android.hilt")
+    id("rift.android.application")
+    id("rift.android.compose")
+    id("rift.android.hilt")
     alias(libs.plugins.kotlin.serialization)
 }
 
 android {
-    namespace = "com.orbit.app"
+    namespace = "com.rift.app"
 
     defaultConfig {
-        applicationId = "com.orbit.launcher"
+        applicationId = "com.rift.launcher"
         versionCode = 1
         versionName = "0.1.0"
     }

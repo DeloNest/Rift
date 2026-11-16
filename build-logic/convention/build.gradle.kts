@@ -11,23 +11,23 @@ dependencies {
 gradlePlugin {
     plugins {
         register("androidApplication") {
-            id = "orbit.android.application"
+            id = "rift.android.application"
             implementationClass = "AndroidApplicationConventionPlugin"
         }
         register("androidLibrary") {
-            id = "orbit.android.library"
+            id = "rift.android.library"
             implementationClass = "AndroidLibraryConventionPlugin"
         }
         register("androidCompose") {
-            id = "orbit.android.compose"
+            id = "rift.android.compose"
             implementationClass = "AndroidComposeConventionPlugin"
         }
         register("androidHilt") {
-            id = "orbit.android.hilt"
+            id = "rift.android.hilt"
             implementationClass = "AndroidHiltConventionPlugin"
         }
         register("androidFeature") {
-            id = "orbit.android.feature"
+            id = "rift.android.feature"
             implementationClass = "AndroidFeatureConventionPlugin"
         }
     }

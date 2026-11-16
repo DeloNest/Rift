@@ -1,10 +1,10 @@
 plugins {
-    id("orbit.android.library")
-    id("orbit.android.compose")
+    id("rift.android.library")
+    id("rift.android.compose")
 }
 
 android {
-    namespace = "com.orbit.core.ui"
+    namespace = "com.rift.core.ui"
 }
 
 dependencies {

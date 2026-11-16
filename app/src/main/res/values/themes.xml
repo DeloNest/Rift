@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Orbit.Splash" parent="Theme.SplashScreen">
+    <style name="Theme.Rift.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@android:color/white</item>
-        <item name="postSplashScreenTheme">@style/Theme.Orbit</item>
+        <item name="postSplashScreenTheme">@style/Theme.Rift</item>
     </style>
 
-    <style name="Theme.Orbit" parent="android:Theme.Material.Light.NoActionBar">
+    <style name="Theme.Rift" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>

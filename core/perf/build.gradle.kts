@@ -1,9 +1,9 @@
 plugins {
-    id("orbit.android.library")
+    id("rift.android.library")
 }
 
 android {
-    namespace = "com.orbit.core.perf"
+    namespace = "com.rift.core.perf"
 }
 
 dependencies {

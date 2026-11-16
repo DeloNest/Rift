@@ -1,9 +1,9 @@
 plugins {
-    id("orbit.android.feature")
+    id("rift.android.feature")
 }
 
 android {
-    namespace = "com.orbit.feature.folders"
+    namespace = "com.rift.feature.folders"
 }
 
 dependencies {

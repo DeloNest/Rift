@@ -1,6 +1,6 @@
 <div dir="rtl">
 
-# plan.md — مشروع Launcher ذكي ومحسّن لأندرويد (الاسم المؤقت: Orbit)
+# plan.md — مشروع Launcher ذكي ومحسّن لأندرويد (الاسم الرسمي: Rift)
 
 > **آخر تحديث:** 16 نوفمبر 2026 · **الجهاز المرجعي:** Samsung Galaxy S22 Ultra (Android 16 / One UI 8) · **الهوية البصرية:** Material 3 Expressive
 >
@@ -10,7 +10,7 @@
 
 ## 0. الملخص التنفيذي
 
-**Orbit** هو Launcher (شاشة رئيسية بديلة) مبني بالكامل بـ **Kotlin + Jetpack Compose** وبهوية **Material 3 Expressive**، هدفه الأول: **أخف وأسرع launcher ممكن** على الأجهزة الحقيقية، مع **دعم كامل للودجت (Widgets)** و**ذكاء يعمل محليًا على الجهاز** بدون إنترنت وبدون إرسال أي بيانات.
+**Rift** هو Launcher (شاشة رئيسية بديلة) مبني بالكامل بـ **Kotlin + Jetpack Compose** وبهوية **Material 3 Expressive**، هدفه الأول: **أخف وأسرع launcher ممكن** على الأجهزة الحقيقية، مع **دعم كامل للودجت (Widgets)** و**ذكاء يعمل محليًا على الجهاز** بدون إنترنت وبدون إرسال أي بيانات.
 
 ### القرارات الكبرى (ملخص ADR)
 
@@ -89,7 +89,7 @@
 ### 3.2 ما لا يستطيع أي launcher من طرف ثالث فعله ⚠️
 - شاشة Recents وإيماءات التنقل تبقى للنظام (على Samsung: One UI Home يملك Recents).
 - لا Google Feed ولا Samsung Free.
-- لا قراءة Layout الخاص بـ One UI Home (محمي بصلاحية signature) → الاستيراد عبر ملف Orbit فقط.
+- لا قراءة Layout الخاص بـ One UI Home (محمي بصلاحية signature) → الاستيراد عبر ملف Rift فقط.
 - لا فتح لوحة الإشعارات بإيماءة سحب لأسفل **بدون حل بديل** (انظر 7.7).
 
 ---
@@ -160,20 +160,20 @@
 ```kotlin
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun OrbitTheme(content: @Composable () -> Unit) {
+fun RiftTheme(content: @Composable () -> Unit) {
     val ctx = LocalContext.current
     val dark = isSystemInDarkTheme()
     val scheme = when {
         Build.VERSION.SDK_INT >= 31 && dark -> dynamicDarkColorScheme(ctx)
         Build.VERSION.SDK_INT >= 31 -> dynamicLightColorScheme(ctx)
-        dark -> OrbitFallbackDark
-        else -> OrbitFallbackLight
+        dark -> RiftFallbackDark
+        else -> RiftFallbackLight
     }
     MaterialExpressiveTheme(
         colorScheme = scheme,
         motionScheme = MotionScheme.expressive(),
-        shapes = OrbitShapes,
-        typography = OrbitTypography,
+        shapes = RiftShapes,
+        typography = RiftTypography,
         content = content,
     )
 }
@@ -319,7 +319,7 @@ class WidgetHostManager @Inject constructor(@ApplicationContext private val ctx:
     private val awm = AppWidgetManager.getInstance(ctx)
     private val host = object : AppWidgetHost(ctx, HOST_ID) {
         override fun onCreateView(c: Context, id: Int, info: AppWidgetProviderInfo?) =
-            OrbitWidgetHostView(c).also { it.setAppWidget(id, info) }
+            RiftWidgetHostView(c).also { it.setAppWidget(id, info) }
         override fun onProvidersChanged() { /* refresh picker + placed widgets */ }
     }
     fun onStart() = host.startListening()
@@ -351,7 +351,7 @@ class WidgetHostManager @Inject constructor(@ApplicationContext private val ctx:
 |--------|----------------|
 | **ساعة + تاريخ ميلادي/هجري** | نغلّف `TextClock` عبر `AndroidRemoteViews` لتحديث النظام لها **بلا wakeups منا**؛ تقويم Umm al-Qura عبر `HijrahChronology` |
 | **مقترحات تطبيقات** | تحديث عند تغيّر السياق أو عند فتح الشاشة (لا polling) |
-| **شريط البحث** | `actionStartActivity` يفتح بحث Orbit مباشرة |
+| **شريط البحث** | `actionStartActivity` يفتح بحث Rift مباشرة |
 | **حالة الجهاز** (بطارية/تخزين) | تحديث عبر broadcast النظام فقط |
 - `GlanceTheme` + `ColorProviders` للألوان الديناميكية، `SizeMode.Responsive`.
 - ⚠️ ودجت Glance تُرسم عبر RemoteViews وليست قابلة للتبديل مع عناصر Compose العادية.
@@ -377,7 +377,7 @@ class WidgetHostManager @Inject constructor(@ApplicationContext private val ctx:
 
 **1) اقتراحات التطبيقات (Predicted Apps)**
 - **أحداث الإطلاق:** جدول `launch_event(pkg, ts, hourBucket, dow, charging, headset, prevApp)` محدود بـ ~5,000 صف مع ضغط.
-- **التسجيل:** من داخل Orbit مباشرة (بدون صلاحيات). `UsageStatsManager` **اختياري** لاحقًا لاستيراد التاريخ.
+- **التسجيل:** من داخل Rift مباشرة (بدون صلاحيات). `UsageStatsManager` **اختياري** لاحقًا لاستيراد التاريخ.
 - **النموذج v1:**
   `score(app|ctx) = w1·decayedFreq(app) + w2·P(app|hour,dow) + w3·P(app|prevApp) + w4·P(app|charging/headset)`
   مع Laplace smoothing وتناقص أسي (نصف عمر ≈ 14 يومًا)، والأوزان من انحدار لوجستي صغير يُحدَّث محليًا.
@@ -424,7 +424,7 @@ class WidgetHostManager @Inject constructor(@ApplicationContext private val ctx:
 
 ### 7.11 الإعدادات والنسخ الاحتياطي
 - Proto DataStore (قابل للتطور schema) لكل الإعدادات، وواجهة M3E بتجميع منطقي: المظهر · الشبكة · الإيماءات · الذكاء · الخصوصية · النسخ الاحتياطي.
-- ملف تصدير `.orbit` = JSON مضغوط (layout + settings + aliases) بإصدار schema ومهاجرات (migrations).
+- ملف تصدير `.rift` = JSON مضغوط (layout + settings + aliases) بإصدار schema ومهاجرات (migrations).
 
 ### 7.12 الإعداد الأول (Onboarding) وتعيين Home
 1. شاشة ترحيب مختصرة (3 خطوات كحد أقصى).
@@ -664,7 +664,7 @@ class WidgetHostManager @Inject constructor(@ApplicationContext private val ctx:
 ## 16. قرارات مفتوحة (تحتاج قرارك)
 
 1. **الترخيص:** مغلق المصدر (Play فقط)، أم مفتوح (GPL/Apache) ويوزَّع أيضًا على F-Droid؟ (يؤثر على إمكانية استعارة كود من مشاريع GPL: **لا يجوز لمشروع مغلق**).
-2. **الاسم والـ package:** `Orbit` اسم مؤقت؛ `com.example.orbit` للتجربة.
+2. **الاسم والـ package:** `Rift` اسم مؤقت؛ `com.rift.launcher` للتجربة.
 3. **نموذج العمل:** مجاني بالكامل أم Freemium (Premium)؟
 4. **حجم الفريق/الميزانية:** التقديرات تفترض مطورَين؛ هل هذا مناسب؟
 5. **اللغات عند الإطلاق:** العربية + الإنجليزية فقط؟
@@ -705,12 +705,12 @@ androidx-glance-material3 = { group = "androidx.glance", name = "glance-material
     <!-- لا INTERNET، لا QUERY_ALL_PACKAGES -->
 
     <application
-        android:name=".OrbitApp"
+        android:name=".RiftApp"
         android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true"
         android:extractNativeLibs="false"
         android:localeConfig="@xml/locales_config"
-        android:theme="@style/Theme.Orbit.Splash">
+        android:theme="@style/Theme.Rift.Splash">
 
         <activity
             android:name=".HomeActivity"

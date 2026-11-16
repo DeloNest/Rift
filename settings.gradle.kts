@@ -15,7 +15,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Orbit"
+rootProject.name = "Rift"
 
 // :app
 include(":app")

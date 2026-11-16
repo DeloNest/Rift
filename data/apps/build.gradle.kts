@@ -1,10 +1,10 @@
 plugins {
-    id("orbit.android.library")
-    id("orbit.android.hilt")
+    id("rift.android.library")
+    id("rift.android.hilt")
 }
 
 android {
-    namespace = "com.orbit.data.apps"
+    namespace = "com.rift.data.apps"
 }
 
 dependencies {

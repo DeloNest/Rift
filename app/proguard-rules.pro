@@ -1,4 +1,4 @@
-# Orbit Launcher ProGuard Rules
+# Rift Launcher ProGuard Rules
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
 
