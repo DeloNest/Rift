@@ -109,6 +109,8 @@ androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscree
 androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
 
 # Benchmark
+# Testing
+junit = { group = "junit", name = "junit", version = "4.13.2" }
 androidx-benchmark-macro = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "macrobenchmark" }
 
 [plugins]

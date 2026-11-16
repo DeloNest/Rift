@@ -9,4 +9,5 @@ android {
 dependencies {
     implementation(project(":data:apps"))
     implementation(project(":data:settings"))
+    testImplementation(libs.junit)
 }
