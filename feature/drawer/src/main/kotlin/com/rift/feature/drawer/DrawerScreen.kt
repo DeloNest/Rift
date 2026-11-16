@@ -2,7 +2,6 @@ package com.rift.feature.drawer
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -17,6 +16,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
@@ -59,7 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -75,6 +74,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rift.data.apps.AppCategory
 import com.rift.data.apps.AppInfo
+import com.rift.data.settings.DrawerSortMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -98,70 +98,85 @@ fun DrawerScreen(
                 .navigationBarsPadding(),
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // 1. Top Header Row (Matches Smart Launcher screenshot)
+                // 1. Top Header Row with Title in the Center
                 TopDrawerHeader(
-                    categoryTitle = uiState.selectedCategory.titleArabic,
+                    categoryTitle = if (uiState.sortMode == DrawerSortMode.CATEGORIZED) {
+                        uiState.selectedCategory.titleArabic
+                    } else {
+                        "جميع التطبيقات"
+                    },
                     onSearchClick = onOpenSearch,
                     onMenuClick = { menuExpanded = true },
                     menuExpanded = menuExpanded,
                     onDismissMenu = { menuExpanded = false },
                     onOpenSettings = onOpenSettings,
+                    sortMode = uiState.sortMode,
+                    onToggleSortMode = {
+                        val nextMode = if (uiState.sortMode == DrawerSortMode.CATEGORIZED) {
+                            DrawerSortMode.ALPHABETICAL
+                        } else {
+                            DrawerSortMode.CATEGORIZED
+                        }
+                        viewModel.setSortMode(nextMode)
+                    },
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
-                // 2. Main Categorized App Grid with AnimatedContent transition
-                AnimatedContent(
-                    targetState = uiState.selectedCategory,
-                    transitionSpec = {
-                        fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) togetherWith
-                                fadeOut(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    label = "CategoryAppsGrid",
-                ) { currentCategory ->
-                    val apps = uiState.categorizedApps[currentCategory] ?: emptyList()
+                // 2. Main App Grid (Categorized or Alphabetical)
+                if (uiState.sortMode == DrawerSortMode.CATEGORIZED) {
+                    AnimatedContent(
+                        targetState = uiState.selectedCategory,
+                        transitionSpec = {
+                            fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) togetherWith
+                                    fadeOut(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        label = "CategoryAppsGrid",
+                    ) { currentCategory ->
+                        val apps = uiState.categorizedApps[currentCategory] ?: emptyList()
 
-                    if (apps.isEmpty()) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (uiState.totalAppsCount == 0) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                                ) {
-                                    CircularProgressIndicator(
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(32.dp),
-                                    )
-                                    Text(
-                                        text = "جاري قراءة وتصنيف التطبيقات...",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        if (apps.isEmpty()) {
+                            EmptyStateNotice(totalAppsCount = uiState.totalAppsCount)
+                        } else {
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(4),
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                items(
+                                    items = apps,
+                                    key = { "${it.packageName}/${it.userSerial}" },
+                                ) { app ->
+                                    DrawerAppItem(
+                                        app = app,
+                                        onClick = { viewModel.launchApp(app) },
+                                        onLongClick = { selectedAppForMove = app },
                                     )
                                 }
-                            } else {
-                                Text(
-                                    text = "لا توجد تطبيقات في هذا التصنيف",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
                             }
                         }
+                    }
+                } else {
+                    // Alphabetical Grid Mode
+                    if (uiState.allAlphabeticalApps.isEmpty()) {
+                        EmptyStateNotice(totalAppsCount = uiState.totalAppsCount)
                     } else {
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(4),
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             items(
-                                items = apps,
+                                items = uiState.allAlphabeticalApps,
                                 key = { "${it.packageName}/${it.userSerial}" },
                             ) { app ->
                                 DrawerAppItem(
@@ -174,19 +189,25 @@ fun DrawerScreen(
                     }
                 }
 
-                // Space for bottom floating bar
-                Spacer(modifier = Modifier.height(72.dp))
+                // Space for bottom floating bar when in categorized mode
+                if (uiState.sortMode == DrawerSortMode.CATEGORIZED) {
+                    Spacer(modifier = Modifier.height(76.dp))
+                } else {
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
             }
 
-            // 3. Floating Bottom Category Pill (Smart Launcher Style)
-            BottomCategoryPill(
-                categories = uiState.categories,
-                selectedCategory = uiState.selectedCategory,
-                onCategorySelect = viewModel::selectCategory,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 12.dp),
-            )
+            // 3. Floating Bottom Category Pill (Only in Categorized mode, well spaced & styled)
+            if (uiState.sortMode == DrawerSortMode.CATEGORIZED) {
+                BottomCategoryPill(
+                    categories = uiState.categories,
+                    selectedCategory = uiState.selectedCategory,
+                    onCategorySelect = viewModel::selectCategory,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 12.dp),
+                )
+            }
 
             // 4. Move App to Category Bottom Sheet
             selectedAppForMove?.let { app ->
@@ -205,8 +226,39 @@ fun DrawerScreen(
     }
 }
 
+@Composable
+private fun EmptyStateNotice(totalAppsCount: Int) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (totalAppsCount == 0) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp),
+                )
+                Text(
+                    text = "جاري قراءة وتصنيف التطبيقات...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            Text(
+                text = "لا توجد تطبيقات في هذا التصنيف",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 /**
- * Header at top of drawer displaying Category Title, Search, and Options.
+ * Header at top of drawer displaying Category Title in the CENTER, flanked by Search and Options.
  */
 @Composable
 fun TopDrawerHeader(
@@ -216,64 +268,71 @@ fun TopDrawerHeader(
     menuExpanded: Boolean,
     onDismissMenu: () -> Unit,
     onOpenSettings: () -> Unit = {},
+    sortMode: DrawerSortMode = DrawerSortMode.CATEGORIZED,
+    onToggleSortMode: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        // Category Title on the right (RTL)
+        // Search Button on one side
+        IconButton(onClick = onSearchClick) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = "بحث",
+                tint = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+
+        // Category Title in the CENTER
         Text(
             text = categoryTitle,
-            style = MaterialTheme.typography.headlineMedium.copy(
+            style = MaterialTheme.typography.titleLarge.copy(
                 fontWeight = FontWeight.Bold,
-                fontSize = 28.sp,
+                fontSize = 22.sp,
             ),
             color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.weight(1f),
         )
 
-        // Actions on the left
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onSearchClick) {
+        // Options Menu on the other side
+        Box {
+            IconButton(onClick = onMenuClick) {
                 Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "بحث",
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "خيارات",
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
 
-            Box {
-                IconButton(onClick = onMenuClick) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "خيارات",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-
-                DropdownMenu(
-                    expanded = menuExpanded,
-                    onDismissRequest = onDismissMenu,
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("الإعدادات والتحديثات") },
-                        onClick = {
-                            onDismissMenu()
-                            onOpenSettings()
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("إعادة ترتيب التصنيفات") },
-                        onClick = onDismissMenu,
-                    )
-                    DropdownMenuItem(
-                        text = { Text("إخفاء التطبيقات") },
-                        onClick = onDismissMenu,
-                    )
-                }
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = onDismissMenu,
+            ) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            if (sortMode == DrawerSortMode.CATEGORIZED) "التبديل إلى عرض أبجدي (A-Z)"
+                            else "التبديل إلى تصنيف ذكي (Smart)"
+                        )
+                    },
+                    onClick = {
+                        onDismissMenu()
+                        onToggleSortMode()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("الإعدادات والتحديثات") },
+                    onClick = {
+                        onDismissMenu()
+                        onOpenSettings()
+                    },
+                )
             }
         }
     }
@@ -341,7 +400,6 @@ fun DrawerAppItem(
             .padding(vertical = 6.dp, horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // Real App Icon
         AppIconImage(
             app = app,
             modifier = Modifier.size(54.dp),
@@ -349,7 +407,6 @@ fun DrawerAppItem(
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        // App Label
         Text(
             text = app.label,
             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
@@ -363,7 +420,7 @@ fun DrawerAppItem(
 
 /**
  * Floating category pill bar anchored at bottom of screen.
- * Distinctive Smart Launcher style.
+ * Distinctive Smart Launcher style with generous spacing and active pill indicator.
  */
 @Composable
 fun BottomCategoryPill(
@@ -374,44 +431,42 @@ fun BottomCategoryPill(
 ) {
     Surface(
         modifier = modifier
-            .padding(horizontal = 24.dp)
-            .height(58.dp),
-        shape = RoundedCornerShape(29.dp),
+            .padding(horizontal = 16.dp)
+            .height(64.dp),
+        shape = RoundedCornerShape(32.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
-        tonalElevation = 8.dp,
-        shadowElevation = 12.dp,
+        tonalElevation = 6.dp,
+        shadowElevation = 10.dp,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             categories.forEach { category ->
                 val isSelected = category == selectedCategory
-                val scale by animateFloatAsState(
-                    targetValue = if (isSelected) 1.15f else 1.0f,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessLow,
-                    ),
-                    label = "CategoryScale",
-                )
 
                 Box(
                     modifier = Modifier
-                        .scale(scale)
-                        .clip(CircleShape)
-                        .clickable { onCategorySelect(category) }
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(
+                            if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                            else Color.Transparent
+                        )
+                        .clickable { onCategorySelect(category) },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = getCategoryIcon(category),
                         contentDescription = category.titleArabic,
                         tint = if (isSelected) {
-                            MaterialTheme.colorScheme.primary
+                            MaterialTheme.colorScheme.onPrimaryContainer
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         },
                         modifier = Modifier.size(24.dp),
                     )
@@ -422,7 +477,7 @@ fun BottomCategoryPill(
 }
 
 /**
- * Maps each AppCategory to a clean icon matching the user's screenshot.
+ * Maps each AppCategory to a clean icon matching Smart Launcher style.
  */
 fun getCategoryIcon(category: AppCategory): ImageVector = when (category) {
     AppCategory.GENERAL -> Icons.Default.Apps

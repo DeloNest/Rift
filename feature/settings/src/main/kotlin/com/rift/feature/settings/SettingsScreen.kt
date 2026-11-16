@@ -183,20 +183,50 @@ fun SettingsScreen(
                     }
                 }
 
-                // Section: App Drawer
+                // Section: App Drawer & Home
                 item {
-                    SettingsSectionTitle("درج التطبيقات")
+                    SettingsSectionTitle("الشاشة الرئيسية ودرج التطبيقات")
                 }
 
                 item {
                     SettingsCard {
-                        SettingsSwitchRow(
+                        SettingsRow(
                             icon = Icons.Default.Widgets,
-                            title = "التصنيف التلقائي الذكي",
-                            subtitle = "فرز التطبيقات في تصنيفات (ألعاب، وسائط، عام...)",
-                            checked = settings.autoCategorizeEnabled,
-                            onCheckedChange = { viewModel.setAutoCategorize(it) },
-                        )
+                            title = "نمط درج التطبيقات",
+                            subtitle = when (settings.drawerSortMode) {
+                                com.rift.data.settings.DrawerSortMode.CATEGORIZED -> "تصنيف ذكي (Smart Launcher)"
+                                com.rift.data.settings.DrawerSortMode.ALPHABETICAL -> "ترتيب أبجدي (A-Z)"
+                                com.rift.data.settings.DrawerSortMode.MANUAL -> "ترتيب يدوي مخصص"
+                            },
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                ModePill(
+                                    label = "ذكي",
+                                    selected = settings.drawerSortMode == com.rift.data.settings.DrawerSortMode.CATEGORIZED,
+                                    onClick = { viewModel.setDrawerSortMode(com.rift.data.settings.DrawerSortMode.CATEGORIZED) },
+                                )
+                                ModePill(
+                                    label = "أبجدي",
+                                    selected = settings.drawerSortMode == com.rift.data.settings.DrawerSortMode.ALPHABETICAL,
+                                    onClick = { viewModel.setDrawerSortMode(com.rift.data.settings.DrawerSortMode.ALPHABETICAL) },
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        SettingsRow(
+                            icon = Icons.Default.Refresh,
+                            title = "إعادة تشغيل معالج الإعداد (Setup)",
+                            subtitle = "إعادة اختيار التطبيقات المفضلة للشريط السفلي ونمط العرض",
+                        ) {
+                            TextButton(onClick = {
+                                viewModel.resetSetup()
+                                onNavigateBack()
+                            }) {
+                                Text("بدء")
+                            }
+                        }
                     }
                 }
 

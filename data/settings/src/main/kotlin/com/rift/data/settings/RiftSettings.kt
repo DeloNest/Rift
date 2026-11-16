@@ -13,6 +13,11 @@ data class RiftSettings(
     val gridRows: Int = 5,
     val dockSize: Int = 5,
 
+    // Onboarding / Setup
+    val hasCompletedSetup: Boolean = false,
+    val favoriteAppPackages: List<String> = emptyList(),
+    val drawerSortMode: DrawerSortMode = DrawerSortMode.CATEGORIZED,
+
     // Appearance
     val darkMode: DarkMode = DarkMode.SYSTEM,
     val dynamicColor: Boolean = true,
@@ -38,6 +43,13 @@ data class RiftSettings(
     val autoCheckUpdates: Boolean = true,
     val updateRepo: String = "DeloNest/Rift",
 )
+
+@Serializable
+enum class DrawerSortMode {
+    CATEGORIZED,   // Smart Launcher style 6-category drawer
+    ALPHABETICAL,  // Single A-Z list
+    MANUAL,        // Fully manual drag/order
+}
 
 @Serializable
 enum class DarkMode { LIGHT, DARK, SYSTEM }

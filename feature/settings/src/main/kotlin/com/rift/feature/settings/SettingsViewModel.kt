@@ -44,7 +44,7 @@ class SettingsViewModel @Inject constructor(
     private val _updateUiState = MutableStateFlow<UpdateUiState>(UpdateUiState.Idle)
     val updateUiState: StateFlow<UpdateUiState> = _updateUiState.asStateFlow()
 
-    val currentVersionName: String = "1.0.2"
+    val currentVersionName: String = "1.0.3"
 
     fun checkForUpdates() {
         viewModelScope.launch {
@@ -127,6 +127,18 @@ class SettingsViewModel @Inject constructor(
     fun setAutoCheckUpdates(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.update { it.copy(autoCheckUpdates = enabled) }
+        }
+    }
+
+    fun resetSetup() {
+        viewModelScope.launch {
+            settingsRepository.update { it.copy(hasCompletedSetup = false) }
+        }
+    }
+
+    fun setDrawerSortMode(mode: com.rift.data.settings.DrawerSortMode) {
+        viewModelScope.launch {
+            settingsRepository.update { it.copy(drawerSortMode = mode) }
         }
     }
 }

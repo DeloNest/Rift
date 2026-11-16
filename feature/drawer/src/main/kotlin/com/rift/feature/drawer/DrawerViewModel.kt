@@ -6,6 +6,8 @@ import com.rift.data.apps.AppCategory
 import com.rift.data.apps.AppCategorizer
 import com.rift.data.apps.AppInfo
 import com.rift.data.apps.AppsRepository
+import com.rift.data.settings.DrawerSortMode
+import com.rift.data.settings.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,6 +23,8 @@ data class DrawerUiState(
     val categories: List<AppCategory> = AppCategory.entries.sortedBy { it.order },
     val categorizedApps: Map<AppCategory, List<AppInfo>> = emptyMap(),
     val currentCategoryApps: List<AppInfo> = emptyList(),
+    val allAlphabeticalApps: List<AppInfo> = emptyList(),
+    val sortMode: DrawerSortMode = DrawerSortMode.CATEGORIZED,
     val totalAppsCount: Int = 0,
 )
 
@@ -28,6 +32,7 @@ data class DrawerUiState(
 class DrawerViewModel @Inject constructor(
     private val appsRepository: AppsRepository,
     private val appCategorizer: AppCategorizer,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     private val _selectedCategory = MutableStateFlow(AppCategory.GENERAL)
@@ -40,7 +45,8 @@ class DrawerViewModel @Inject constructor(
         appsRepository.allApps,
         _selectedCategory,
         _manualOrder,
-    ) { apps, selectedCat, manualOrder ->
+        settingsRepository.settings,
+    ) { apps, selectedCat, manualOrder, settings ->
         // Group apps by category
         val grouped = mutableMapOf<AppCategory, MutableList<AppInfo>>()
         for (cat in AppCategory.entries) {
@@ -60,11 +66,15 @@ class DrawerViewModel @Inject constructor(
             )
         }
 
+        val allAlphabetical = apps.sortedBy { it.label.lowercase() }
+
         DrawerUiState(
             selectedCategory = selectedCat,
             categories = AppCategory.entries.sortedBy { it.order },
             categorizedApps = finalMap,
             currentCategoryApps = finalMap[selectedCat] ?: emptyList(),
+            allAlphabeticalApps = allAlphabetical,
+            sortMode = settings.drawerSortMode,
             totalAppsCount = apps.size,
         )
     }.stateIn(
@@ -75,6 +85,12 @@ class DrawerViewModel @Inject constructor(
 
     fun selectCategory(category: AppCategory) {
         _selectedCategory.value = category
+    }
+
+    fun setSortMode(mode: DrawerSortMode) {
+        viewModelScope.launch {
+            settingsRepository.update { it.copy(drawerSortMode = mode) }
+        }
     }
 
     fun moveAppToCategory(app: AppInfo, newCategory: AppCategory) {
