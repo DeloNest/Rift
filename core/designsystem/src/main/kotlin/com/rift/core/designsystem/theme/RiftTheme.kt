@@ -19,8 +19,8 @@ fun RiftTheme(
 ) {
     val context = LocalContext.current
     val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= 31 && darkTheme -> dynamicDarkColorScheme(context)
-        dynamicColor && Build.VERSION.SDK_INT >= 31 -> dynamicLightColorScheme(context)
+        dynamicColor && Build.VERSION.SDK_INT >= 31 && darkTheme -> runCatching { dynamicDarkColorScheme(context) }.getOrDefault(RiftDarkColorScheme)
+        dynamicColor && Build.VERSION.SDK_INT >= 31 -> runCatching { dynamicLightColorScheme(context) }.getOrDefault(RiftLightColorScheme)
         darkTheme -> RiftDarkColorScheme
         else -> RiftLightColorScheme
     }

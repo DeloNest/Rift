@@ -36,7 +36,7 @@ data class RiftSettings(
 
     // Updates
     val autoCheckUpdates: Boolean = true,
-    val updateRepo: String = "RiftLauncher/Rift",
+    val updateRepo: String = "DeloNest/Rift",
 )
 
 @Serializable

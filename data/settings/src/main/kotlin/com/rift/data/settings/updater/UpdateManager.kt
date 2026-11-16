@@ -32,7 +32,7 @@ class UpdateManager @Inject constructor(
      */
     suspend fun checkForUpdates(
         currentVersion: String,
-        repo: String = "RiftLauncher/Rift"
+        repo: String = "DeloNest/Rift"
     ): UpdateCheckResult = withContext(Dispatchers.IO) {
         try {
             val url = URL("https://api.github.com/repos/$repo/releases/latest")
@@ -157,14 +157,14 @@ class UpdateManager @Inject constructor(
     /**
      * URI to open or add the repository directly into Obtainium.
      */
-    fun getObtainiumUri(repo: String = "RiftLauncher/Rift"): Uri {
+    fun getObtainiumUri(repo: String = "DeloNest/Rift"): Uri {
         return Uri.parse("obtainium://add/https://github.com/$repo")
     }
 
     /**
      * URL for the GitHub releases webpage.
      */
-    fun getGitHubReleasesUrl(repo: String = "RiftLauncher/Rift"): Uri {
+    fun getGitHubReleasesUrl(repo: String = "DeloNest/Rift"): Uri {
         return Uri.parse("https://github.com/$repo/releases")
     }
 
