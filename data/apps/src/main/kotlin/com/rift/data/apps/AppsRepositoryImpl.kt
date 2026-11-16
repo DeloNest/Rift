@@ -107,9 +107,7 @@ class AppsRepositoryImpl @Inject constructor(
                             userSerial = serial,
                             isWorkProfile = isWork,
                             category = try { info.applicationInfo.category } catch (_: Exception) { -1 },
-                            lastUpdateTime = try {
-                                context.packageManager.getPackageInfo(info.componentName.packageName, 0).lastUpdateTime
-                            } catch (_: Exception) { 0L },
+                            lastUpdateTime = 0L,
                         )
                     }
                     if (activities.isNotEmpty()) {

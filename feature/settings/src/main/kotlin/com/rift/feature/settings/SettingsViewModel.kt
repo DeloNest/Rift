@@ -44,7 +44,7 @@ class SettingsViewModel @Inject constructor(
     private val _updateUiState = MutableStateFlow<UpdateUiState>(UpdateUiState.Idle)
     val updateUiState: StateFlow<UpdateUiState> = _updateUiState.asStateFlow()
 
-    val currentVersionName: String = "1.0.0"
+    val currentVersionName: String = "1.0.1"
 
     fun checkForUpdates() {
         viewModelScope.launch {

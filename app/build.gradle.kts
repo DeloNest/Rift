@@ -10,8 +10,8 @@ android {
 
     defaultConfig {
         applicationId = "com.rift.launcher"
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
     }
 
     buildTypes {
@@ -62,6 +62,4 @@ dependencies {
     implementation(project(":feature:smart"))
     implementation(project(":feature:gestures"))
 
-    // Debug
-    debugImplementation(libs.leakcanary.android)
 }

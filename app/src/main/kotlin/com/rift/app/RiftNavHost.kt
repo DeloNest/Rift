@@ -29,7 +29,7 @@ enum class LauncherScreen {
  */
 @Composable
 fun RiftApp(modifier: Modifier = Modifier) {
-    var currentScreen by remember { mutableStateOf(LauncherScreen.DRAWER) }
+    var currentScreen by remember { mutableStateOf(LauncherScreen.HOME) }
 
     BackHandler(enabled = currentScreen != LauncherScreen.HOME) {
         currentScreen = LauncherScreen.HOME
@@ -47,6 +47,7 @@ fun RiftApp(modifier: Modifier = Modifier) {
                     modifier = Modifier.fillMaxSize(),
                     onOpenDrawer = { currentScreen = LauncherScreen.DRAWER },
                     onOpenSearch = { currentScreen = LauncherScreen.SEARCH },
+                    onOpenSettings = { currentScreen = LauncherScreen.SETTINGS },
                 )
             }
             LauncherScreen.DRAWER -> {
@@ -59,13 +60,13 @@ fun RiftApp(modifier: Modifier = Modifier) {
             LauncherScreen.SEARCH -> {
                 SearchScreen(
                     modifier = Modifier.fillMaxSize(),
-                    onClose = { currentScreen = LauncherScreen.DRAWER },
+                    onClose = { currentScreen = LauncherScreen.HOME },
                 )
             }
             LauncherScreen.SETTINGS -> {
                 SettingsScreen(
                     modifier = Modifier.fillMaxSize(),
-                    onNavigateBack = { currentScreen = LauncherScreen.DRAWER },
+                    onNavigateBack = { currentScreen = LauncherScreen.HOME },
                 )
             }
         }
